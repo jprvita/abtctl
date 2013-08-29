@@ -19,9 +19,14 @@
  *
  */
 
+#include <err.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <hardware/bluetooth.h>
+#include <hardware/hardware.h>
 
 #define MAX_LINE_SIZE 64
 
@@ -35,10 +40,30 @@ static void cmd_prompt() {
     fflush(stdout);
 }
 
+/* Initialize the Bluetooth stack */
+static void bt_init() {
+    int status;
+    hw_module_t *module;
+
+    /* Get the Bluetooth module from libhardware */
+    status = hw_get_module(BT_STACK_MODULE_ID, (hw_module_t const**) &module);
+    if (status < 0) {
+        errno = status;
+        err(1, "Failed to get the Bluetooth module");
+    }
+    printf("Bluetooth stack infomation:\n");
+    printf("    id = %s\n", module->id);
+    printf("    name = %s\n", module->name);
+    printf("    author = %s\n", module->author);
+    printf("    HAL API version = %d\n", module->hal_api_version);
+}
+
 int main (int argc, char * argv[]) {
     char line[MAX_LINE_SIZE];
 
     printf("Android Bluetooth control tool version 0.1\n");
+
+    bt_init();
 
     cmd_prompt();
 
