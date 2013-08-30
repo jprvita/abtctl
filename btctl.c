@@ -44,6 +44,7 @@ static void cmd_prompt() {
 static void bt_init() {
     int status;
     hw_module_t *module;
+    hw_device_t *hwdev;
 
     /* Get the Bluetooth module from libhardware */
     status = hw_get_module(BT_STACK_MODULE_ID, (hw_module_t const**) &module);
@@ -56,6 +57,15 @@ static void bt_init() {
     printf("    name = %s\n", module->name);
     printf("    author = %s\n", module->author);
     printf("    HAL API version = %d\n", module->hal_api_version);
+
+    /* Get the Bluetooth hardware device */
+    status = module->methods->open(module, BT_STACK_MODULE_ID, &hwdev);
+    if (status < 0) {
+        errno = status;
+        err(2, "Failed to get the Bluetooth hardware device");
+    }
+    printf("Bluetooth device infomation:\n");
+    printf("    API version = %d\n", hwdev->version);
 }
 
 int main (int argc, char * argv[]) {
