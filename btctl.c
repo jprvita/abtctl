@@ -41,6 +41,23 @@ static void cmd_prompt() {
     fflush(stdout);
 }
 
+/* Bluetooth interface callbacks */
+static bt_callbacks_t btcbs = {
+    sizeof(bt_callbacks_t),
+    NULL, /* adapter_state_changed_callback */
+    NULL, /* adapter_properties_callback */
+    NULL, /* remote_device_properties_callback */
+    NULL, /* device_found_callback */
+    NULL, /* discovery_state_changed_callback */
+    NULL, /* pin_request_callback */
+    NULL, /* ssp_request_callback */
+    NULL, /* bond_state_changed_callback */
+    NULL, /* acl_state_changed_callback */
+    NULL, /* callback_thread_event */
+    NULL, /* dut_mode_recv_callback */
+    NULL, /* le_test_mode_callback */
+};
+
 /* Initialize the Bluetooth stack */
 static void bt_init() {
     int status;
@@ -74,6 +91,11 @@ static void bt_init() {
     u.btiface = btdev->get_bluetooth_interface();
     if (u.btiface == NULL)
         err(3, "Failed to get the Bluetooth interface");
+
+    /* Init the Bluetooth interface, setting a callback for each operation */
+    status = u.btiface->init(&btcbs);
+    if (status != BT_STATUS_SUCCESS && status != BT_STATUS_DONE)
+        err(4, "Failed to initialize the Bluetooth interface");
 }
 
 int main (int argc, char * argv[]) {
@@ -91,6 +113,9 @@ int main (int argc, char * argv[]) {
 
         cmd_prompt();
     }
+
+    /* Cleanup the Bluetooth interface */
+    u.btiface->cleanup();
 
     printf("\n");
     return 0;
