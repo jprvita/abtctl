@@ -32,6 +32,7 @@
 
 /* Data that have to be acessable by the callbacks */
 struct userdata {
+    const bt_interface_t *btiface;
 } u;
 
 /* Prints the command prompt */
@@ -45,6 +46,7 @@ static void bt_init() {
     int status;
     hw_module_t *module;
     hw_device_t *hwdev;
+    bluetooth_device_t *btdev;
 
     /* Get the Bluetooth module from libhardware */
     status = hw_get_module(BT_STACK_MODULE_ID, (hw_module_t const**) &module);
@@ -66,6 +68,12 @@ static void bt_init() {
     }
     printf("Bluetooth device infomation:\n");
     printf("    API version = %d\n", hwdev->version);
+
+    /* Get the Bluetooth interface */
+    btdev = (bluetooth_device_t *) hwdev;
+    u.btiface = btdev->get_bluetooth_interface();
+    if (u.btiface == NULL)
+        err(3, "Failed to get the Bluetooth interface");
 }
 
 int main (int argc, char * argv[]) {
