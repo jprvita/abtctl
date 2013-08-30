@@ -20,9 +20,14 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define MAX_LINE_SIZE 64
+
+/* Data that have to be acessable by the callbacks */
+struct userdata {
+} u;
 
 /* Prints the command prompt */
 static void cmd_prompt() {
