@@ -36,6 +36,7 @@ struct userdata {
     const bt_interface_t *btiface;
     uint8_t btiface_initialized;
     uint8_t quit;
+    bt_state_t adapter_state; /* The adapter is always OFF in the beginning */
 } u;
 
 /* Prints the command prompt */
@@ -74,9 +75,46 @@ static void cmd_quit(char *args) {
     u.quit = 1;
 }
 
+/* Called every time the adapter state changes */
+static void adapter_state_change_cb(bt_state_t state) {
+    u.adapter_state = state;
+    printf("\nAdapter state changed: %i\n", state);
+    cmd_prompt();
+}
+
+/* Enables the Bluetooth adapter */
+static void cmd_enable(char *args) {
+    int status;
+
+    if (u.adapter_state == BT_STATE_ON) {
+        printf("Bluetooth is already enabled\n");
+        return;
+    }
+
+    status = u.btiface->enable();
+    if (status != BT_STATUS_SUCCESS)
+        printf("Failed to enable Bluetooth\n");
+}
+
+/* Disables the Bluetooth adapter */
+static void cmd_disable(char *args) {
+    int status;
+
+    if (u.adapter_state == BT_STATE_OFF) {
+        printf("Bluetooth is already disabled\n");
+        return;
+    }
+
+    status = u.btiface->disable();
+    if (status != BT_STATUS_SUCCESS)
+        printf("Failed to disable Bluetooth\n");
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
+    { "enable", "      Enables the Bluetooth adapter", cmd_enable },
+    { "disable", "     Disables the Bluetooth adapter", cmd_disable },
     { NULL, NULL, NULL }
 };
 
@@ -126,7 +164,7 @@ static void thread_event_cb(bt_cb_thread_evt event) {
 /* Bluetooth interface callbacks */
 static bt_callbacks_t btcbs = {
     sizeof(bt_callbacks_t),
-    NULL, /* adapter_state_changed_callback */
+    adapter_state_change_cb, /* Called every time the adapter state changes */
     NULL, /* adapter_properties_callback */
     NULL, /* remote_device_properties_callback */
     NULL, /* device_found_callback */
@@ -149,6 +187,7 @@ static void bt_init() {
 
     u.btiface_initialized = 0;
     u.quit = 0;
+    u.adapter_state = BT_STATE_OFF; /* The adapter is OFF in the beginning */
 
     /* Get the Bluetooth module from libhardware */
     status = hw_get_module(BT_STACK_MODULE_ID, (hw_module_t const**) &module);
