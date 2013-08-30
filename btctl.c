@@ -43,6 +43,62 @@ static void cmd_prompt() {
     fflush(stdout);
 }
 
+/* Struct that defines a user command */
+typedef struct cmd {
+    const char *name;
+    const char *description;
+    void (*handler)(char *args);
+} cmd_t;
+
+/* Clean blanks until a non-blank is found */
+static void line_skip_blanks(char **line) {
+    while (**line == ' ')
+        (*line)++;
+}
+
+/* Parses a sub-string out of a string */
+static void line_get_str(char **line, char *str) {
+  line_skip_blanks(line);
+
+  while (**line != 0 && **line != ' ') {
+        *str = **line;
+        (*line)++;
+        str++;
+  }
+
+  *str = 0;
+}
+
+/* List of available user commands */
+static const cmd_t cmd_list[] = {
+    { NULL, NULL, NULL }
+};
+
+/* Parses a command and calls the respective handler */
+static void cmd_process(char *line) {
+    char cmd[MAX_LINE_SIZE];
+    int i;
+
+    if (line[0] == 0)
+        return;
+
+    line_get_str(&line, cmd);
+
+    if (strcmp(cmd, "help") == 0) {
+        for (i = 0; cmd_list[i].name != NULL; i++)
+            printf("%s %s\n", cmd_list[i].name, cmd_list[i].description);
+        return;
+    }
+
+    for (i = 0; cmd_list[i].name != NULL; i++)
+        if (strcmp(cmd, cmd_list[i].name) == 0) {
+            cmd_list[i].handler(line);
+            return;
+        }
+
+    printf("%s: unknown command, use 'help' for a list of available commands\n", cmd);
+}
+
 /* This callback is used by the thread that handles Bluetooth interface (btif)
  * to send events for its users. At the moment there are two events defined:
  *
@@ -133,6 +189,7 @@ int main (int argc, char * argv[]) {
         /* remove linefeed */
         line[strlen(line)-1] = 0;
 
+        cmd_process(line);
         cmd_prompt();
     }
 
