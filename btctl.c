@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <hardware/bluetooth.h>
 #include <hardware/hardware.h>
@@ -33,12 +34,31 @@
 /* Data that have to be acessable by the callbacks */
 struct userdata {
     const bt_interface_t *btiface;
+    uint8_t btiface_initialized;
 } u;
 
 /* Prints the command prompt */
 static void cmd_prompt() {
     printf("> ");
     fflush(stdout);
+}
+
+/* This callback is used by the thread that handles Bluetooth interface (btif)
+ * to send events for its users. At the moment there are two events defined:
+ *
+ *     ASSOCIATE_JVM: sinalizes the btif handler thread is ready;
+ *     DISASSOCIATE_JVM: sinalizes the btif handler thread is about to exit.
+ *
+ * This events are used by the JNI to know when the btif handler thread should
+ * be associated or dessociated with the JVM
+ */
+static void thread_event_cb(bt_cb_thread_evt event) {
+    printf("\nBluetooth interface %s\n", event == ASSOCIATE_JVM ? "ready" : "finished");
+    if (event == ASSOCIATE_JVM) {
+        u.btiface_initialized = 1;
+        cmd_prompt();
+    } else
+        u.btiface_initialized = 0;
 }
 
 /* Bluetooth interface callbacks */
@@ -53,7 +73,7 @@ static bt_callbacks_t btcbs = {
     NULL, /* ssp_request_callback */
     NULL, /* bond_state_changed_callback */
     NULL, /* acl_state_changed_callback */
-    NULL, /* callback_thread_event */
+    thread_event_cb, /* Called when the JVM is associated / dissociated */
     NULL, /* dut_mode_recv_callback */
     NULL, /* le_test_mode_callback */
 };
@@ -64,6 +84,8 @@ static void bt_init() {
     hw_module_t *module;
     hw_device_t *hwdev;
     bluetooth_device_t *btdev;
+
+    u.btiface_initialized = 0;
 
     /* Get the Bluetooth module from libhardware */
     status = hw_get_module(BT_STACK_MODULE_ID, (hw_module_t const**) &module);
@@ -115,7 +137,10 @@ int main (int argc, char * argv[]) {
     }
 
     /* Cleanup the Bluetooth interface */
+    printf("Processing Bluetooth interface cleanup");
     u.btiface->cleanup();
+    while (u.btiface_initialized)
+        usleep(10000);
 
     printf("\n");
     return 0;
