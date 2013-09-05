@@ -35,6 +35,7 @@
 struct userdata {
     const bt_interface_t *btiface;
     uint8_t btiface_initialized;
+    uint8_t quit;
 } u;
 
 /* Prints the command prompt */
@@ -69,8 +70,13 @@ static void line_get_str(char **line, char *str) {
   *str = 0;
 }
 
+static void cmd_quit(char *args) {
+    u.quit = 1;
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
+    { "quit", "        Exits", cmd_quit },
     { NULL, NULL, NULL }
 };
 
@@ -142,6 +148,7 @@ static void bt_init() {
     bluetooth_device_t *btdev;
 
     u.btiface_initialized = 0;
+    u.quit = 0;
 
     /* Get the Bluetooth module from libhardware */
     status = hw_get_module(BT_STACK_MODULE_ID, (hw_module_t const**) &module);
@@ -185,12 +192,14 @@ int main (int argc, char * argv[]) {
 
     cmd_prompt();
 
-    while (fgets(line, MAX_LINE_SIZE, stdin)) {
+    while (!u.quit && fgets(line, MAX_LINE_SIZE, stdin)) {
         /* remove linefeed */
         line[strlen(line)-1] = 0;
 
         cmd_process(line);
-        cmd_prompt();
+
+        if (!u.quit)
+            cmd_prompt();
     }
 
     /* Cleanup the Bluetooth interface */
