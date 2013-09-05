@@ -37,6 +37,7 @@ struct userdata {
     uint8_t btiface_initialized;
     uint8_t quit;
     bt_state_t adapter_state; /* The adapter is always OFF in the beginning */
+    bt_discovery_state_t discovery_state;
 } u;
 
 /* Prints the command prompt */
@@ -110,11 +111,123 @@ static void cmd_disable(char *args) {
         printf("Failed to disable Bluetooth\n");
 }
 
+static void device_found_cb(int num_properties, bt_property_t *properties) {
+
+    printf("\nDevice found\n");
+
+    while (num_properties--) {
+        bt_property_t prop = properties[num_properties];
+
+        switch (prop.type) {
+            const char *addr;
+
+            case BT_PROPERTY_BDNAME:
+                printf("  name: %s\n", (const char *) prop.val);
+                break;
+
+            case BT_PROPERTY_BDADDR:
+                addr = (const char *) prop.val;
+                printf("  addr: %02X:%02X:%02X:%02X:%02X:%02X\n", addr[0],
+                       addr[1], addr[2], addr[3], addr[4], addr[5]);
+                break;
+
+            case BT_PROPERTY_CLASS_OF_DEVICE:
+                printf("  class: 0x%x\n", ((uint32_t *) prop.val)[0]);
+                break;
+
+            case BT_PROPERTY_TYPE_OF_DEVICE:
+                switch ( ((bt_device_type_t *) prop.val)[0] ) {
+                    case BT_DEVICE_DEVTYPE_BREDR:
+                        printf("  type: BR/EDR only\n");
+                        break;
+                    case BT_DEVICE_DEVTYPE_BLE:
+                        printf("  type: LE only\n");
+                        break;
+                    case BT_DEVICE_DEVTYPE_DUAL:
+                        printf("  type: DUAL MODE\n");
+                        break;
+                }
+                break;
+
+            case BT_PROPERTY_REMOTE_FRIENDLY_NAME:
+                printf("  alias: %s\n", (const char *) prop.val);
+                break;
+
+            case BT_PROPERTY_REMOTE_RSSI:
+                printf("  rssi: %i\n", ((uint8_t *) prop.val)[0]);
+                break;
+
+            case BT_PROPERTY_REMOTE_VERSION_INFO:
+                printf("  version info:\n");
+                printf("    version: %d\n", ((bt_remote_version_t *) prop.val)->version);
+                printf("    subversion: %d\n", ((bt_remote_version_t *) prop.val)->sub_ver);
+                printf("    manufacturer: %d\n", ((bt_remote_version_t *) prop.val)->manufacturer);
+                break;
+
+            default:
+                printf("  Unknown property type:%i len:%i val:%p\n", prop.type, prop.len, prop.val);
+                break;
+        }
+    }
+
+    cmd_prompt();
+}
+
+static void discovery_state_changed_cb(bt_discovery_state_t state) {
+    u.discovery_state == state;
+    printf("\nDiscovery state changed: %i\n", state);
+    cmd_prompt();
+}
+
+static void cmd_discovery(char *args) {
+    bt_status_t status;
+    char arg[MAX_LINE_SIZE];
+
+    line_get_str(&args, arg);
+
+    if (arg[0] == 0 || strcmp(arg, "help") == 0) {
+        printf("discovery -- Controls discovery of nearby devices\n");
+        printf("Arguments:\n");
+        printf("start   starts a new discovery session\n");
+        printf("stop    interrupts an ongoing discovery session\n");
+
+    } else if (strcmp(arg, "start") == 0) {
+
+        if (u.adapter_state != BT_STATE_ON) {
+            printf("Unable to start discovery: Adapter is down\n");
+            return;
+        }
+
+        if (u.discovery_state == BT_DISCOVERY_STARTED) {
+            printf("Discovery is already running\n");
+            return;
+        }
+
+        status = u.btiface->start_discovery();
+        if (status != BT_STATUS_SUCCESS)
+            printf("Failed to start discovery\n");
+
+    } else if (strcmp(arg, "stop") == 0) {
+
+        if (u.discovery_state == BT_DISCOVERY_STOPPED) {
+            printf("Unable to stop discovery: Discovery is not running\n");
+            return;
+        }
+
+        status = u.btiface->cancel_discovery();
+        if (status != BT_STATUS_SUCCESS)
+            printf("Failed to stop discovery\n");
+
+    } else
+        printf("Invalid argument \"%s\"\n", arg);
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
     { "enable", "      Enables the Bluetooth adapter", cmd_enable },
     { "disable", "     Disables the Bluetooth adapter", cmd_disable },
+    { "discovery", "   Controls discovery of nearby devices", cmd_discovery },
     { NULL, NULL, NULL }
 };
 
@@ -167,8 +280,8 @@ static bt_callbacks_t btcbs = {
     adapter_state_change_cb, /* Called every time the adapter state changes */
     NULL, /* adapter_properties_callback */
     NULL, /* remote_device_properties_callback */
-    NULL, /* device_found_callback */
-    NULL, /* discovery_state_changed_callback */
+    device_found_cb, /* Called for every device found */
+    discovery_state_changed_cb, /* Called every time the discovery state changes */
     NULL, /* pin_request_callback */
     NULL, /* ssp_request_callback */
     NULL, /* bond_state_changed_callback */
