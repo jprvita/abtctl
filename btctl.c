@@ -27,6 +27,7 @@
 #include <unistd.h>
 
 #include <hardware/bluetooth.h>
+#include <hardware/bt_gatt.h>
 #include <hardware/hardware.h>
 
 #define MAX_LINE_SIZE 64
@@ -35,6 +36,8 @@
 struct userdata {
     const bt_interface_t *btiface;
     uint8_t btiface_initialized;
+    const btgatt_interface_t *gattiface;
+    uint8_t gattiface_initialized;
     uint8_t quit;
     bt_state_t adapter_state; /* The adapter is always OFF in the beginning */
     bt_discovery_state_t discovery_state;
@@ -256,6 +259,13 @@ static void cmd_process(char *line) {
     printf("%s: unknown command, use 'help' for a list of available commands\n", cmd);
 }
 
+/* GATT interface callbacks */
+static const btgatt_callbacks_t gattcbs = {
+    sizeof(btgatt_callbacks_t),
+    NULL, /* btgatt_client_callbacks_t */
+    NULL  /* btgatt_server_callbacks_t */
+};
+
 /* This callback is used by the thread that handles Bluetooth interface (btif)
  * to send events for its users. At the moment there are two events defined:
  *
@@ -269,7 +279,20 @@ static void thread_event_cb(bt_cb_thread_evt event) {
     printf("\nBluetooth interface %s\n", event == ASSOCIATE_JVM ? "ready" : "finished");
     if (event == ASSOCIATE_JVM) {
         u.btiface_initialized = 1;
+
+        u.gattiface = u.btiface->get_profile_interface(BT_PROFILE_GATT_ID);
+        if (u.gattiface != NULL) {
+            bt_status_t status = u.gattiface->init(&gattcbs);
+            if (status != BT_STATUS_SUCCESS) {
+                printf("Failed to initialize Bluetooth GATT interface, status: %d\n", status);
+                u.gattiface = NULL;
+            } else
+                u.gattiface_initialized = 1;
+        } else
+            printf("Failed to get Bluetooth GATT Interface\n");
+
         cmd_prompt();
+
     } else
         u.btiface_initialized = 0;
 }
