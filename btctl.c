@@ -28,6 +28,7 @@
 
 #include <hardware/bluetooth.h>
 #include <hardware/bt_gatt.h>
+#include <hardware/bt_gatt_client.h>
 #include <hardware/hardware.h>
 
 #define MAX_LINE_SIZE 64
@@ -259,10 +260,31 @@ static void cmd_process(char *line) {
     printf("%s: unknown command, use 'help' for a list of available commands\n", cmd);
 }
 
+/* GATT client callbacks */
+static const btgatt_client_callbacks_t gattccbs = {
+    NULL, /* register_client_callback */
+    NULL, /* scan_result_callback */
+    NULL, /* connect_callback */
+    NULL, /* disconnect_callback */
+    NULL, /* search_complete_callback */
+    NULL, /* search_result_callback */
+    NULL, /* get_characteristic_callback */
+    NULL, /* get_descriptor_callback */
+    NULL, /* get_included_service_callback */
+    NULL, /* register_for_notification_callback */
+    NULL, /* notify_callback */
+    NULL, /* read_characteristic_callback */
+    NULL, /* write_characteristic_callback */
+    NULL, /* read_descriptor_callback */
+    NULL, /* write_descriptor_callback */
+    NULL, /* execute_write_callback */
+    NULL  /* read_remote_rssi_callback */
+};
+
 /* GATT interface callbacks */
 static const btgatt_callbacks_t gattcbs = {
     sizeof(btgatt_callbacks_t),
-    NULL, /* btgatt_client_callbacks_t */
+    &gattccbs,
     NULL  /* btgatt_server_callbacks_t */
 };
 
