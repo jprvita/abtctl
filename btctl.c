@@ -42,6 +42,7 @@ struct userdata {
     uint8_t quit;
     bt_state_t adapter_state; /* The adapter is always OFF in the beginning */
     bt_discovery_state_t discovery_state;
+    uint8_t scan_state;
 } u;
 
 /* Prints the command prompt */
@@ -226,12 +227,89 @@ static void cmd_discovery(char *args) {
         printf("Invalid argument \"%s\"\n", arg);
 }
 
+static void scan_result_cb(bt_bdaddr_t *bda, int rssi, uint8_t *adv_data) {
+    int i;
+
+    printf("\nBLE device found\n");
+    printf("  addr: %02X:%02X:%02X:%02X:%02X:%02X\n", bda->address[0],
+           bda->address[1], bda->address[2], bda->address[3], bda->address[4],
+           bda->address[5]);
+    printf("  rssi: %d\n", rssi);
+    /* TODO: parse the advertising data */
+    printf("  advertising data:");
+    for (i = 0; i < 31; i++)
+        printf(" %02X", adv_data[i]);
+    printf("\n");
+
+    cmd_prompt();
+}
+
+static void cmd_scan(char *args) {
+    /* The implementation of BluetoothAdapter.startLeScan() in Android's JAVA
+     * API uses a randomly-generatade UUID for client_if */
+    int client_if = 666;
+    bt_status_t status;
+    char arg[MAX_LINE_SIZE];
+
+    if (u.gattiface == NULL) {
+        printf("Unable to start/stop BLE scan: GATT interface not available\n");
+        return;
+    }
+
+    line_get_str(&args, arg);
+
+    if (arg[0] == 0 || strcmp(arg, "help") == 0) {
+        printf("scan -- Controls BLE scan of nearby devices\n");
+        printf("Arguments:\n");
+        printf("start   starts a new scan session\n");
+        printf("stop    interrupts an ongoing scan session\n");
+
+    } else if (strcmp(arg, "start") == 0) {
+
+        if (u.adapter_state != BT_STATE_ON) {
+            printf("Unable to start discovery: Adapter is down\n");
+            return;
+        }
+
+        if (u.scan_state == 1) {
+            printf("Scan is already running\n");
+            return;
+        }
+
+        status = u.gattiface->client->scan(client_if, 1);
+        if (status != BT_STATUS_SUCCESS) {
+            printf("Failed to start discovery\n");
+            return;
+        }
+
+        u.scan_state = 1;
+
+    } else if (strcmp(arg, "stop") == 0) {
+
+        if (u.scan_state == 0) {
+            printf("Unable to stop scan: Scan is not running\n");
+            return;
+        }
+
+        status = u.gattiface->client->scan(client_if, 0);
+        if (status != BT_STATUS_SUCCESS) {
+            printf("Failed to stop scan\n");
+            return;
+        }
+
+        u.scan_state = 0;
+
+    } else
+        printf("Invalid argument \"%s\"\n", arg);
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
     { "enable", "      Enables the Bluetooth adapter", cmd_enable },
     { "disable", "     Disables the Bluetooth adapter", cmd_disable },
     { "discovery", "   Controls discovery of nearby devices", cmd_discovery },
+    { "scan", "        Controls BLE scan of nearby devices", cmd_scan },
     { NULL, NULL, NULL }
 };
 
@@ -263,7 +341,7 @@ static void cmd_process(char *line) {
 /* GATT client callbacks */
 static const btgatt_client_callbacks_t gattccbs = {
     NULL, /* register_client_callback */
-    NULL, /* scan_result_callback */
+    scan_result_cb, /* called every time an advertising report is seen */
     NULL, /* connect_callback */
     NULL, /* disconnect_callback */
     NULL, /* search_complete_callback */
