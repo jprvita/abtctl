@@ -312,6 +312,70 @@ static void cmd_scan(char *args) {
         printf("Invalid argument \"%s\"\n", arg);
 }
 
+static void connect_cb(int conn_id, int status, int client_if,
+                       bt_bdaddr_t *bda) {
+
+    if (status != 0) {
+        printf("Failed to connect to device %02X:%02X:%02X:%02X:%02X:%02X, "
+                            "status: %i\n", bda->address[0], bda->address[1],
+                            bda->address[2], bda->address[3], bda->address[4],
+                            bda->address[5], status);
+        return;
+    }
+
+    printf("Connected to device %02X:%02X:%02X:%02X:%02X:%02X, conn_id: %d, "
+                            "client_if: %d\n", bda->address[0], bda->address[1],
+                            bda->address[2], bda->address[3], bda->address[4],
+                            bda->address[5], conn_id, client_if);
+}
+
+static void disconnect_cb(int conn_id, int status, int client_if,
+                          bt_bdaddr_t *bda) {
+
+    printf("Disconnected from device %02X:%02X:%02X:%02X:%02X:%02X, "
+            "conn_id: %d, client_if: %d, status: %d\n", bda->address[0],
+            bda->address[1], bda->address[2], bda->address[3], bda->address[4],
+            bda->address[5], conn_id, client_if, status);
+}
+
+static void cmd_connect(char *args) {
+    bt_status_t status;
+    char arg[MAX_LINE_SIZE];
+    bt_bdaddr_t addr;
+    int ret;
+
+    if (u.gattiface == NULL) {
+        printf("Unable to BLE connect: GATT interface not available\n");
+        return;
+    }
+
+    if (u.adapter_state != BT_STATE_ON) {
+        printf("Unable to connect: Adapter is down\n");
+        return;
+    }
+
+    if (u.client_registered == false) {
+        printf("Unable to connect: We're not registered as GATT client\n");
+        return;
+    }
+
+    line_get_str(&args, arg);
+
+    ret = str2ba(arg, &addr);
+    if (ret != 0) {
+        printf("Unable to connect: Invalid bluetooth address: %s\n", arg);
+        return;
+    }
+
+    printf("Connecting to: %s\n", arg);
+
+    status = u.gattiface->client->connect(u.client_if, &addr, true);
+    if (status != BT_STATUS_SUCCESS) {
+        printf("Failed to connect, status: %d\n", status);
+        return;
+    }
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
@@ -319,6 +383,7 @@ static const cmd_t cmd_list[] = {
     { "disable", "     Disables the Bluetooth adapter", cmd_disable },
     { "discovery", "   Controls discovery of nearby devices", cmd_discovery },
     { "scan", "        Controls BLE scan of nearby devices", cmd_scan },
+    { "connect", "     Create a connection to a remote device", cmd_connect },
     { NULL, NULL, NULL }
 };
 
@@ -365,8 +430,8 @@ static void register_client_cb(int status, int client_if,
 static const btgatt_client_callbacks_t gattccbs = {
     register_client_cb, /* Called after client is registered */
     scan_result_cb, /* called every time an advertising report is seen */
-    NULL, /* connect_callback */
-    NULL, /* disconnect_callback */
+    connect_cb, /* called every time a connection attempt finishes */
+    disconnect_cb, /* called every time a connection attempt finishes */
     NULL, /* search_complete_callback */
     NULL, /* search_result_callback */
     NULL, /* get_characteristic_callback */
