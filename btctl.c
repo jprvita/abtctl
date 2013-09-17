@@ -376,6 +376,68 @@ static void cmd_connect(char *args) {
     }
 }
 
+static void bond_state_changed_cb(bt_status_t status, bt_bdaddr_t *bda,
+                                  bt_bond_state_t state) {
+
+    if (status != BT_STATUS_SUCCESS) {
+        printf("Failed to change bond state, status: %d\n", status);
+        return;
+    }
+
+    printf("Bond state changed for device %02X:%02X:%02X:%02X:%02X:%02X: ",
+           bda->address[0], bda->address[1], bda->address[2], bda->address[3],
+           bda->address[4], bda->address[5]);
+
+    switch (state) {
+        case BT_BOND_STATE_NONE:
+            printf("BT_BOND_STATE_NONE\n");
+            break;
+
+        case BT_BOND_STATE_BONDING:
+            printf("BT_BOND_STATE_BONDING\n");
+            break;
+
+        case BT_BOND_STATE_BONDED:
+            printf("BT_BOND_STATE_BONDED\n");
+            break;
+
+        default:
+            printf("Unknown (%d)\n", state);
+            break;
+    }
+}
+
+static void cmd_pair(char *args) {
+    char arg[MAX_LINE_SIZE];
+    bt_bdaddr_t addr;
+    bt_status_t status;
+    int ret;
+
+    if (u.btiface == NULL) {
+        printf("Unable to BLE pair: Bluetooth interface not available\n");
+        return;
+    }
+
+    if (u.adapter_state != BT_STATE_ON) {
+        printf("Unable to pair: Adapter is down\n");
+        return;
+    }
+
+    line_get_str(&args, arg);
+
+    ret = str2ba(arg, &addr);
+    if (ret != 0) {
+        printf("Invalid bluetooth address: %s\n", arg);
+        return;
+    }
+
+    status = u.btiface->create_bond(&addr);
+    if (status != BT_STATUS_SUCCESS) {
+        printf("Failed to pair, status: %d\n", status);
+        return;
+    }
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
@@ -384,6 +446,7 @@ static const cmd_t cmd_list[] = {
     { "discovery", "   Controls discovery of nearby devices", cmd_discovery },
     { "scan", "        Controls BLE scan of nearby devices", cmd_scan },
     { "connect", "     Create a connection to a remote device", cmd_connect },
+    { "pair", "        Pair with remote device", cmd_pair },
     { NULL, NULL, NULL }
 };
 
@@ -504,7 +567,7 @@ static bt_callbacks_t btcbs = {
     discovery_state_changed_cb, /* Called every time the discovery state changes */
     NULL, /* pin_request_callback */
     NULL, /* ssp_request_callback */
-    NULL, /* bond_state_changed_callback */
+    bond_state_changed_cb, /* bond_state_changed_callback */
     NULL, /* acl_state_changed_callback */
     thread_event_cb, /* Called when the JVM is associated / dissociated */
     NULL, /* dut_mode_recv_callback */
