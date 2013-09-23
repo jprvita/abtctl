@@ -338,6 +338,17 @@ static void disconnect_cb(int conn_id, int status, int client_if,
             bda->address[5], conn_id, client_if, status);
 }
 
+void ssp_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
+            uint32_t cod, bt_ssp_variant_t pairing_variant, uint32_t pass_key) {
+
+    printf("Remote addr: %02X:%02X:%02X:%02X:%02X:%02X\n",
+           remote_bd_addr->address[0], remote_bd_addr->address[1],
+           remote_bd_addr->address[2], remote_bd_addr->address[3],
+           remote_bd_addr->address[4], remote_bd_addr->address[5]);
+
+    printf("Enter passkey on peer device: %d\n", pass_key);
+}
+
 static void cmd_connect(char *args) {
     bt_status_t status;
     char arg[MAX_LINE_SIZE];
@@ -608,7 +619,7 @@ static bt_callbacks_t btcbs = {
     device_found_cb, /* Called for every device found */
     discovery_state_changed_cb, /* Called every time the discovery state changes */
     NULL, /* pin_request_callback */
-    NULL, /* ssp_request_callback */
+    ssp_request_cb, /* ssp_request_callback */
     bond_state_changed_cb, /* bond_state_changed_callback */
     NULL, /* acl_state_changed_callback */
     thread_event_cb, /* Called when the JVM is associated / dissociated */
