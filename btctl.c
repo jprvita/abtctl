@@ -679,6 +679,10 @@ int main (int argc, char * argv[]) {
             cmd_prompt();
     }
 
+    /* Disable adapter on exit */
+    if (u.adapter_state == BT_STATE_ON)
+        cmd_disable(NULL);
+
     /* Cleanup the Bluetooth interface */
     printf("Processing Bluetooth interface cleanup");
     u.btiface->cleanup();
