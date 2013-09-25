@@ -43,3 +43,20 @@ int str2ba(const char *str, bt_bdaddr_t *ba) {
 
     return 0;
 }
+
+int str_in_list(const char* list[], const char *str) {
+
+    unsigned i = 0;
+
+    if (list == NULL || str == NULL)
+        return -1;
+
+    while (list[i] != NULL) {
+        if (strcmp(list[i], str) == 0)
+            return i;
+
+        i++;
+    }
+
+    return -1;
+}
