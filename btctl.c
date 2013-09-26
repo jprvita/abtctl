@@ -47,6 +47,8 @@ struct userdata {
     uint8_t scan_state;
     bool client_registered;
     int client_if;
+    bt_bdaddr_t remote_addr;
+    int conn_id;
 } u;
 
 /* Arbitrary UUID used to identify this application with the GATT library. The
@@ -329,6 +331,7 @@ static void connect_cb(int conn_id, int status, int client_if,
                             "client_if: %d\n", bda->address[0], bda->address[1],
                             bda->address[2], bda->address[3], bda->address[4],
                             bda->address[5], conn_id, client_if);
+    u.conn_id = conn_id;
 }
 
 static void disconnect_cb(int conn_id, int status, int client_if,
@@ -338,6 +341,24 @@ static void disconnect_cb(int conn_id, int status, int client_if,
             "conn_id: %d, client_if: %d, status: %d\n", bda->address[0],
             bda->address[1], bda->address[2], bda->address[3], bda->address[4],
             bda->address[5], conn_id, client_if, status);
+
+    u.conn_id = 0;
+}
+
+static void cmd_disconnect(char *args) {
+    bt_status_t status;
+
+    if (u.conn_id <= 0) {
+        printf("Device not connected\n");
+        return;
+    }
+
+    status = u.gattiface->client->disconnect(u.client_if, &u.remote_addr,
+                                             u.conn_id);
+    if (status != BT_STATUS_SUCCESS) {
+        printf("Failed to disconnect, status: %d\n", status);
+        return;
+    }
 }
 
 void ssp_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
@@ -354,7 +375,6 @@ void ssp_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
 static void cmd_connect(char *args) {
     bt_status_t status;
     char arg[MAX_LINE_SIZE];
-    bt_bdaddr_t addr;
     int ret;
 
     if (u.gattiface == NULL) {
@@ -374,7 +394,7 @@ static void cmd_connect(char *args) {
 
     line_get_str(&args, arg);
 
-    ret = str2ba(arg, &addr);
+    ret = str2ba(arg, &u.remote_addr);
     if (ret != 0) {
         printf("Unable to connect: Invalid bluetooth address: %s\n", arg);
         return;
@@ -382,7 +402,7 @@ static void cmd_connect(char *args) {
 
     printf("Connecting to: %s\n", arg);
 
-    status = u.gattiface->client->connect(u.client_if, &addr, true);
+    status = u.gattiface->client->connect(u.client_if, &u.remote_addr, true);
     if (status != BT_STATUS_SUCCESS) {
         printf("Failed to connect, status: %d\n", status);
         return;
@@ -502,6 +522,7 @@ static const cmd_t cmd_list[] = {
     { "scan", "        Controls BLE scan of nearby devices", cmd_scan },
     { "connect", "     Create a connection to a remote device", cmd_connect },
     { "pair", "        Pair with remote device", cmd_pair },
+    { "disconnect", "  Disconnect from remote device", cmd_disconnect },
     { NULL, NULL, NULL }
 };
 
@@ -639,6 +660,7 @@ static void bt_init() {
     u.btiface_initialized = 0;
     u.quit = 0;
     u.adapter_state = BT_STATE_OFF; /* The adapter is OFF in the beginning */
+    u.conn_id = 0;
 
     /* Get the Bluetooth module from libhardware */
     status = hw_get_module(BT_STACK_MODULE_ID, (hw_module_t const**) &module);
