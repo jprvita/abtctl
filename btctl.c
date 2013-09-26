@@ -152,6 +152,68 @@ static void cmd_disable(char *args) {
         printf("Failed to disable Bluetooth\n");
 }
 
+static void adapter_properties_cb(bt_status_t status, int num_properties,
+                                  bt_property_t *properties) {
+    char addr_str[BT_ADDRESS_STR_LEN];
+    int i;
+
+    if (status != BT_STATUS_SUCCESS) {
+        printf("Failed to get adapter properties, error: %i\n", status);
+        cmd_prompt();
+        return;
+    }
+
+    printf("\nAdapter properties\n");
+
+    while (num_properties--) {
+        bt_property_t prop = properties[num_properties];
+
+        switch (prop.type) {
+            case BT_PROPERTY_BDNAME:
+                printf("  Name: %s\n", (const char *) prop.val);
+                break;
+
+            case BT_PROPERTY_BDADDR:
+                printf("  Address: %s\n", ba2str((uint8_t *) prop.val,
+                       addr_str));
+                break;
+
+            case BT_PROPERTY_CLASS_OF_DEVICE:
+                printf("  Class of Device: 0x%x\n", ((uint32_t *) prop.val)[0]);
+                break;
+
+            case BT_PROPERTY_TYPE_OF_DEVICE:
+                switch (((bt_device_type_t *) prop.val)[0]) {
+                    case BT_DEVICE_DEVTYPE_BREDR:
+                        printf("  Device Type: BR/EDR only\n");
+                        break;
+                    case BT_DEVICE_DEVTYPE_BLE:
+                        printf("  Device Type: LE only\n");
+                        break;
+                    case BT_DEVICE_DEVTYPE_DUAL:
+                        printf("  Device Type: DUAL MODE\n");
+                        break;
+                }
+                break;
+
+            case BT_PROPERTY_ADAPTER_BONDED_DEVICES:
+                i = prop.len / sizeof(bt_bdaddr_t);
+                printf("  Bonded devices: %u\n", i);
+                while (i-- > 0) {
+                    uint8_t *addr = ((bt_bdaddr_t *) prop.val)[i].address;
+                    printf("    Address: %s\n", ba2str(addr, addr_str));
+                }
+                break;
+
+            default:
+                /* Other properties not handled */
+                break;
+        }
+    }
+
+    cmd_prompt();
+}
+
 static void device_found_cb(int num_properties, bt_property_t *properties) {
 
     printf("\nDevice found\n");
@@ -650,7 +712,7 @@ static void thread_event_cb(bt_cb_thread_evt event) {
 static bt_callbacks_t btcbs = {
     sizeof(bt_callbacks_t),
     adapter_state_change_cb, /* Called every time the adapter state changes */
-    NULL, /* adapter_properties_callback */
+    adapter_properties_cb, /* adapter_properties_callback */
     NULL, /* remote_device_properties_callback */
     device_found_cb, /* Called for every device found */
     discovery_state_changed_cb, /* Called every time the discovery state changes */
