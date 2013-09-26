@@ -43,7 +43,19 @@ struct userdata {
     bt_state_t adapter_state; /* The adapter is always OFF in the beginning */
     bt_discovery_state_t discovery_state;
     uint8_t scan_state;
+    bool client_registered;
+    int client_if;
 } u;
+
+/* Arbitrary UUID used to identify this application with the GATT library. The
+ * Android JAVA framework
+ * (frameworks/base/core/java/android/bluetooth/BluetoothUuid.java) uses the
+ * method randomUUID()
+ */
+static bt_uuid_t app_uuid = {
+    .uu = { 0x1b, 0x1c, 0xb9, 0x2e, 0x0d, 0x2e, 0x4c, 0x45, \
+            0xbb, 0xb9, 0xf4, 0x1b, 0x46, 0x39, 0x23, 0x36 }
+};
 
 /* Prints the command prompt */
 static void cmd_prompt() {
@@ -245,9 +257,6 @@ static void scan_result_cb(bt_bdaddr_t *bda, int rssi, uint8_t *adv_data) {
 }
 
 static void cmd_scan(char *args) {
-    /* The implementation of BluetoothAdapter.startLeScan() in Android's JAVA
-     * API uses a randomly-generatade UUID for client_if */
-    int client_if = 666;
     bt_status_t status;
     char arg[MAX_LINE_SIZE];
 
@@ -276,7 +285,7 @@ static void cmd_scan(char *args) {
             return;
         }
 
-        status = u.gattiface->client->scan(client_if, 1);
+        status = u.gattiface->client->scan(u.client_if, 1);
         if (status != BT_STATUS_SUCCESS) {
             printf("Failed to start discovery\n");
             return;
@@ -291,7 +300,7 @@ static void cmd_scan(char *args) {
             return;
         }
 
-        status = u.gattiface->client->scan(client_if, 0);
+        status = u.gattiface->client->scan(u.client_if, 0);
         if (status != BT_STATUS_SUCCESS) {
             printf("Failed to stop scan\n");
             return;
@@ -338,9 +347,23 @@ static void cmd_process(char *line) {
     printf("%s: unknown command, use 'help' for a list of available commands\n", cmd);
 }
 
+static void register_client_cb(int status, int client_if,
+                               bt_uuid_t *app_uuid) {
+
+    if (status != BT_STATUS_SUCCESS) {
+        printf("Failed to register client, status: %d\n", status);
+        return;
+    }
+
+    printf("Registered!, client_if: %d\n", client_if);
+
+    u.client_if = client_if;
+    u.client_registered = true;
+}
+
 /* GATT client callbacks */
 static const btgatt_client_callbacks_t gattccbs = {
-    NULL, /* register_client_callback */
+    register_client_cb, /* Called after client is registered */
     scan_result_cb, /* called every time an advertising report is seen */
     NULL, /* connect_callback */
     NULL, /* disconnect_callback */
@@ -386,8 +409,17 @@ static void thread_event_cb(bt_cb_thread_evt event) {
             if (status != BT_STATUS_SUCCESS) {
                 printf("Failed to initialize Bluetooth GATT interface, status: %d\n", status);
                 u.gattiface = NULL;
-            } else
+            } else {
+                bt_status_t status;
+
                 u.gattiface_initialized = 1;
+
+                status = u.gattiface->client->register_client(&app_uuid);
+                if (status != BT_STATUS_SUCCESS) {
+                    printf("Failed to register as a GATT client, status: %d\n", status);
+                    return;
+                }
+            }
         } else
             printf("Failed to get Bluetooth GATT Interface\n");
 
