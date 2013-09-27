@@ -191,7 +191,7 @@ static void device_found_cb(int num_properties, bt_property_t *properties) {
 }
 
 static void discovery_state_changed_cb(bt_discovery_state_t state) {
-    u.discovery_state == state;
+    u.discovery_state = state;
     printf("\nDiscovery state changed: %i\n", state);
     cmd_prompt();
 }
