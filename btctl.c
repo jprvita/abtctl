@@ -322,18 +322,103 @@ static void cmd_discovery(char *args) {
         printf("Invalid argument \"%s\"\n", arg);
 }
 
+static void parse_ad_data(uint8_t *data, uint8_t length) {
+    uint8_t i = 0;
+    uint8_t ad_type = data[i++];
+
+#define AD_FLAGS              0x01
+#define AD_UUID16_SOME        0x02
+#define AD_UUID16_ALL         0x03
+#define AD_UUID128_SOME       0x06
+#define AD_UUID128_ALL        0x07
+#define AD_NAME_SHORT         0x08
+#define AD_NAME_COMPLETE      0x09
+#define AD_TX_POWER           0x0a
+#define AD_SLAVE_CONN_INT     0x12
+#define AD_SOLICIT_UUID16     0x14
+#define AD_SOLICIT_UUID128    0x15
+#define AD_SERVICE_DATA       0x16
+#define AD_PUBLIC_ADDRESS     0x17
+#define AD_RANDOM_ADDRESS     0x18
+#define AD_GAP_APPEARANCE     0x19
+#define AD_ADV_INTERVAL       0x1a
+#define AD_MANUFACTURER_DATA  0xff
+
+    switch (ad_type) {
+        case AD_FLAGS:
+            printf("    Flags\n");
+            break;
+        case AD_UUID16_SOME:
+            printf("    Incomplete list of 16-bit Service UUIDs\n");
+            break;
+        case AD_UUID16_ALL:
+            printf("    Complete list of 16-bit Service UUIDs\n");
+            break;
+        case AD_UUID128_SOME:
+            printf("    Incomplete list of 128-bit Service UUIDs\n");
+            break;
+        case AD_UUID128_ALL:
+            printf("    Complete list of 128-bit Service UUIDs\n");
+            break;
+        case AD_NAME_SHORT:
+            printf("    Shortened Local Name\n");
+            break;
+        case AD_NAME_COMPLETE:
+            printf("    Complete Local Name)\n");
+            break;
+        case AD_TX_POWER:
+            printf("    TX Power Level\n");
+            break;
+        case AD_SLAVE_CONN_INT:
+            printf("    Slave Connection Interval\n");
+            break;
+        case AD_SOLICIT_UUID16:
+            printf("    List of 16-bit Service Solicitation UUIDs\n");
+            break;
+        case AD_SOLICIT_UUID128:
+            printf("    List of 128-bit Service Solicitation UUIDs\n");
+            break;
+        case AD_SERVICE_DATA:
+            printf("    Service Data\n");
+            break;
+        case AD_PUBLIC_ADDRESS:
+            printf("    Public Target Address\n");
+            break;
+        case AD_RANDOM_ADDRESS:
+            printf("    Random Target Address\n");
+            break;
+        case AD_GAP_APPEARANCE:
+            printf("    Appearance\n");
+            break;
+        case AD_ADV_INTERVAL:
+            printf("    Advertising Interval\n");
+            break;
+        case AD_MANUFACTURER_DATA:
+            printf("    Manufacturer-specific data\n");
+            break;
+        default:
+            printf("    Invalid data type 0x%02X\n", ad_type);
+            break;
+    }
+}
+
 static void scan_result_cb(bt_bdaddr_t *bda, int rssi, uint8_t *adv_data) {
     char addr_str[BT_ADDRESS_STR_LEN];
-    int i;
+    uint8_t i = 0;
 
     printf("\nBLE device found\n");
     printf("  Address: %s\n", ba2str(bda->address, addr_str));
     printf("  RSSI: %d\n", rssi);
-    /* TODO: parse the advertising data */
-    printf("  Advertising Data:");
-    for (i = 0; i < 31; i++)
-        printf(" %02X", adv_data[i]);
-    printf("\n");
+
+    printf("  Advertising Data:\n");
+    while (i < 31 && adv_data[i] != 0) {
+        uint8_t length, ad_type, j;
+
+        length = adv_data[i++];
+        parse_ad_data(&adv_data[i], length);
+
+        i += length;
+    }
 
     cmd_prompt();
 }
