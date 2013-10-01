@@ -345,9 +345,36 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
 #define AD_MANUFACTURER_DATA  0xff
 
     switch (ad_type) {
-        case AD_FLAGS:
+        uint8_t j;
+
+        case AD_FLAGS: {
+            uint8_t mask = data[i];
+            static const struct {
+                uint8_t bit;
+                const char *str;
+            } eir_flags_table[] = {
+                {0, "LE Limited Discoverable Mode"},
+                {1, "LE General Discoverable Mode"},
+                {2, "BR/EDR Not Supported"},
+                {3, "Simultaneous LE and BR/EDR (Controller)"},
+                {4, "Simultaneous LE and BR/EDR (Host)"},
+                {0xFF, NULL}
+            };
+
             printf("    Flags\n");
+
+            for (j = 0; eir_flags_table[j].str; j++) {
+                if (data[i] & (1 << eir_flags_table[j].bit)) {
+                    printf("      %s\n", eir_flags_table[j].str);
+                    mask &= ~(1 << eir_flags_table[j].bit);
+                }
+            }
+
+            if (mask)
+                printf("      Unknown flags (0x%02X)\n", mask);
+
             break;
+        }
         case AD_UUID16_SOME:
             printf("    Incomplete list of 16-bit Service UUIDs\n");
             break;
