@@ -99,9 +99,18 @@ static void cmd_quit(char *args) {
 
 /* Called every time the adapter state changes */
 static void adapter_state_change_cb(bt_state_t state) {
+
     u.adapter_state = state;
     printf("\nAdapter state changed: %i\n", state);
-    cmd_prompt();
+
+    if (state ==  BT_STATE_ON) {
+        bt_status_t status = u.gattiface->client->register_client(&app_uuid);
+        if (status != BT_STATUS_SUCCESS)
+            printf("Failed to register as a GATT client, status: %d\n", status);
+    } else
+        /* when state goes to BT_STATE_ON prompt will be printed by
+         * register_client_cb() */
+        cmd_prompt();
 }
 
 /* Enables the Bluetooth adapter */
@@ -120,12 +129,17 @@ static void cmd_enable(char *args) {
 
 /* Disables the Bluetooth adapter */
 static void cmd_disable(char *args) {
+    bt_status_t result;
     int status;
 
     if (u.adapter_state == BT_STATE_OFF) {
         printf("Bluetooth is already disabled\n");
         return;
     }
+
+    result = u.gattiface->client->unregister_client(u.client_if);
+    if (result != BT_STATUS_SUCCESS)
+        printf("Failed to unregister client, error: %u\n", result);
 
     status = u.btiface->disable();
     if (status != BT_STATUS_SUCCESS)
@@ -563,6 +577,8 @@ static void register_client_cb(int status, int client_if,
 
     u.client_if = client_if;
     u.client_registered = true;
+
+    cmd_prompt();
 }
 
 /* GATT client callbacks */
@@ -613,17 +629,8 @@ static void thread_event_cb(bt_cb_thread_evt event) {
             if (status != BT_STATUS_SUCCESS) {
                 printf("Failed to initialize Bluetooth GATT interface, status: %d\n", status);
                 u.gattiface = NULL;
-            } else {
-                bt_status_t status;
-
+            } else
                 u.gattiface_initialized = 1;
-
-                status = u.gattiface->client->register_client(&app_uuid);
-                if (status != BT_STATUS_SUCCESS) {
-                    printf("Failed to register as a GATT client, status: %d\n", status);
-                    return;
-                }
-            }
         } else
             printf("Failed to get Bluetooth GATT Interface\n");
 
