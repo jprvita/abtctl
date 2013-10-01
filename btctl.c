@@ -31,6 +31,8 @@
 #include <hardware/bt_gatt_client.h>
 #include <hardware/hardware.h>
 
+#include "util.h"
+
 #define MAX_LINE_SIZE 64
 
 /* Data that have to be acessable by the callbacks */
