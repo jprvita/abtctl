@@ -327,10 +327,10 @@ static void scan_result_cb(bt_bdaddr_t *bda, int rssi, uint8_t *adv_data) {
     int i;
 
     printf("\nBLE device found\n");
-    printf("  addr: %s\n", ba2str(bda->address, addr_str));
-    printf("  rssi: %d\n", rssi);
+    printf("  Address: %s\n", ba2str(bda->address, addr_str));
+    printf("  RSSI: %d\n", rssi);
     /* TODO: parse the advertising data */
-    printf("  advertising data:");
+    printf("  Advertising Data:");
     for (i = 0; i < 31; i++)
         printf(" %02X", adv_data[i]);
     printf("\n");
