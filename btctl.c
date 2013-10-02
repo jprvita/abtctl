@@ -72,8 +72,10 @@ struct userdata {
 
 /* Arbitrary UUID used to identify this application with the GATT library. The
  * Android JAVA framework
- * (frameworks/base/core/java/android/bluetooth/BluetoothUuid.java) uses the
- * method randomUUID()
+ * (frameworks/base/core/java/android/bluetooth/BluetoothAdapter.java,
+ * frameworks/base/core/java/android/bluetooth/BluetoothGatt.java and
+ * frameworks/base/core/java/android/bluetooth/BluetoothGattServer.java) uses
+ * the method randomUUID()
  */
 static bt_uuid_t app_uuid = {
     .uu = { 0x1b, 0x1c, 0xb9, 0x2e, 0x0d, 0x2e, 0x4c, 0x45, \
