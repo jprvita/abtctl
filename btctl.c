@@ -445,9 +445,16 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
             printf("    Appearance\n");
             printf("      0x%02X%02X\n", data[i+1], data[i]);
             break;
-        case AD_ADV_INTERVAL:
+        case AD_ADV_INTERVAL: {
+            uint16_t adv_interval;
+
             printf("    Advertising Interval\n");
+
+            adv_interval = data[i] + (data[i+1] << 4);
+            printf("      %.2f\n", (float) adv_interval * 0.625);
+
             break;
+        }
         case AD_MANUFACTURER_DATA:
             printf("    Manufacturer-specific data\n");
             break;
