@@ -407,9 +407,21 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
             printf("    TX Power Level\n");
             printf("      %d\n", (int8_t) data[i]);
             break;
-        case AD_SLAVE_CONN_INT:
+        case AD_SLAVE_CONN_INT: {
+            uint16_t min, max;
+
             printf("    Slave Connection Interval\n");
+
+            min = data[i] + (data[i+1] << 4);
+            if (min >= 0x0006 && min <= 0x0c80)
+                printf("      Minimum = %.2f\n", (float) min * 1.25);
+
+            max = data[i+2] + (data[i+3] << 4);
+            if (max >= 0x0006 && max <= 0x0c80)
+                printf("      Maximum = %.2f\n", (float) max * 1.25);
+
             break;
+        }
         case AD_SOLICIT_UUID16:
             printf("    List of 16-bit Service Solicitation UUIDs\n");
             break;
