@@ -432,10 +432,14 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
             printf("    Service Data\n");
             break;
         case AD_PUBLIC_ADDRESS:
-            printf("    Public Target Address\n");
-            break;
         case AD_RANDOM_ADDRESS:
-            printf("    Random Target Address\n");
+            if (ad_type == AD_PUBLIC_ADDRESS)
+                printf("    Public Target Address\n");
+            else
+                printf("    Random Target Address\n");
+
+            printf("      %02X:%02X:%02X:%02X:%02X:%02X\n", data[i+5],
+                   data[i+4], data[i+3], data[i+2], data[i+1], data[i]);
             break;
         case AD_GAP_APPEARANCE:
             printf("    Appearance\n");
