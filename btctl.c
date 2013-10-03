@@ -388,11 +388,21 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
             printf("    Complete list of 128-bit Service UUIDs\n");
             break;
         case AD_NAME_SHORT:
-            printf("    Shortened Local Name\n");
+        case AD_NAME_COMPLETE: {
+            char name[length];
+
+            memset(name, 0, sizeof(name));
+            memcpy(name, &data[i], length-1);
+
+            if (ad_type == AD_NAME_SHORT)
+                printf("    Shortened Local Name\n");
+            else
+                printf("    Complete Local Name\n");
+
+            printf("      %s\n", name);
+
             break;
-        case AD_NAME_COMPLETE:
-            printf("    Complete Local Name)\n");
-            break;
+        }
         case AD_TX_POWER:
             printf("    TX Power Level\n");
             break;
