@@ -457,6 +457,11 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
         }
         case AD_MANUFACTURER_DATA:
             printf("    Manufacturer-specific data\n");
+            printf("      Company ID: 0x%02X%02X\n", data[i+1], data[i]);
+            printf("      Data:");
+            for (j = i+2; j < i+length; j++)
+                printf(" %02X", data[j]);
+            printf("\n");
             break;
         default:
             printf("    Invalid data type 0x%02X\n", ad_type);
