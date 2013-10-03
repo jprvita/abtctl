@@ -215,6 +215,7 @@ static void adapter_properties_cb(bt_status_t status, int num_properties,
 }
 
 static void device_found_cb(int num_properties, bt_property_t *properties) {
+    char addr_str[BT_ADDRESS_STR_LEN];
 
     printf("\nDevice found\n");
 
@@ -222,16 +223,12 @@ static void device_found_cb(int num_properties, bt_property_t *properties) {
         bt_property_t prop = properties[num_properties];
 
         switch (prop.type) {
-            const char *addr;
-
             case BT_PROPERTY_BDNAME:
                 printf("  name: %s\n", (const char *) prop.val);
                 break;
 
             case BT_PROPERTY_BDADDR:
-                addr = (const char *) prop.val;
-                printf("  addr: %02X:%02X:%02X:%02X:%02X:%02X\n", addr[0],
-                       addr[1], addr[2], addr[3], addr[4], addr[5]);
+                printf("  addr: %s\n", ba2str((uint8_t *) prop.val, addr_str));
                 break;
 
             case BT_PROPERTY_CLASS_OF_DEVICE:
@@ -326,12 +323,11 @@ static void cmd_discovery(char *args) {
 }
 
 static void scan_result_cb(bt_bdaddr_t *bda, int rssi, uint8_t *adv_data) {
+    char addr_str[BT_ADDRESS_STR_LEN];
     int i;
 
     printf("\nBLE device found\n");
-    printf("  addr: %02X:%02X:%02X:%02X:%02X:%02X\n", bda->address[0],
-           bda->address[1], bda->address[2], bda->address[3], bda->address[4],
-           bda->address[5]);
+    printf("  addr: %s\n", ba2str(bda->address, addr_str));
     printf("  rssi: %d\n", rssi);
     /* TODO: parse the advertising data */
     printf("  advertising data:");
@@ -400,29 +396,26 @@ static void cmd_scan(char *args) {
 
 static void connect_cb(int conn_id, int status, int client_if,
                        bt_bdaddr_t *bda) {
+    char addr_str[BT_ADDRESS_STR_LEN];
 
     if (status != 0) {
-        printf("Failed to connect to device %02X:%02X:%02X:%02X:%02X:%02X, "
-                            "status: %i\n", bda->address[0], bda->address[1],
-                            bda->address[2], bda->address[3], bda->address[4],
-                            bda->address[5], status);
+        printf("Failed to connect to device %s, status: %i\n",
+               ba2str(bda->address, addr_str), status);
         return;
     }
 
-    printf("Connected to device %02X:%02X:%02X:%02X:%02X:%02X, conn_id: %d, "
-                            "client_if: %d\n", bda->address[0], bda->address[1],
-                            bda->address[2], bda->address[3], bda->address[4],
-                            bda->address[5], conn_id, client_if);
+    printf("Connected to device %s, conn_id: %d, client_if: %d\n",
+           ba2str(bda->address, addr_str), conn_id, client_if);
     u.conn_id = conn_id;
 }
 
 static void disconnect_cb(int conn_id, int status, int client_if,
                           bt_bdaddr_t *bda) {
+    char addr_str[BT_ADDRESS_STR_LEN];
 
-    printf("Disconnected from device %02X:%02X:%02X:%02X:%02X:%02X, "
-            "conn_id: %d, client_if: %d, status: %d\n", bda->address[0],
-            bda->address[1], bda->address[2], bda->address[3], bda->address[4],
-            bda->address[5], conn_id, client_if, status);
+    printf("Disconnected from device %s, conn_id: %d, client_if: %d, "
+           "status: %d\n", ba2str(bda->address, addr_str), conn_id, client_if,
+           status);
 
     u.conn_id = 0;
 }
@@ -445,12 +438,9 @@ static void cmd_disconnect(char *args) {
 
 void ssp_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
             uint32_t cod, bt_ssp_variant_t pairing_variant, uint32_t pass_key) {
+    char addr_str[BT_ADDRESS_STR_LEN];
 
-    printf("Remote addr: %02X:%02X:%02X:%02X:%02X:%02X\n",
-           remote_bd_addr->address[0], remote_bd_addr->address[1],
-           remote_bd_addr->address[2], remote_bd_addr->address[3],
-           remote_bd_addr->address[4], remote_bd_addr->address[5]);
-
+    printf("Remote addr: %s\n", ba2str(remote_bd_addr->address, addr_str));
     printf("Enter passkey on peer device: %d\n", pass_key);
 }
 
@@ -493,15 +483,15 @@ static void cmd_connect(char *args) {
 
 static void bond_state_changed_cb(bt_status_t status, bt_bdaddr_t *bda,
                                   bt_bond_state_t state) {
+    char addr_str[BT_ADDRESS_STR_LEN];
 
     if (status != BT_STATUS_SUCCESS) {
         printf("Failed to change bond state, status: %d\n", status);
         return;
     }
 
-    printf("Bond state changed for device %02X:%02X:%02X:%02X:%02X:%02X: ",
-           bda->address[0], bda->address[1], bda->address[2], bda->address[3],
-           bda->address[4], bda->address[5]);
+    printf("Bond state changed for device %s: ",
+           ba2str(bda->address, addr_str));
 
     switch (state) {
         case BT_BOND_STATE_NONE:
