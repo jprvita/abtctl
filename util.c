@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include <hardware/bluetooth.h>
@@ -42,6 +43,13 @@ int str2ba(const char *str, bt_bdaddr_t *ba) {
         ba->address[5-i] = strtol(str, NULL, 16);
 
     return 0;
+}
+
+char *ba2str(const uint8_t *ba, char *str) {
+
+    sprintf(str, "%02X:%02X:%02X:%02X:%02X:%02X", ba[0], ba[1], ba[2], ba[3],
+            ba[4], ba[5]);
+    return str;
 }
 
 int str_in_list(const char* list[], const char *str) {
