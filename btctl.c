@@ -405,6 +405,7 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
         }
         case AD_TX_POWER:
             printf("    TX Power Level\n");
+            printf("      %d\n", (int8_t) data[i]);
             break;
         case AD_SLAVE_CONN_INT:
             printf("    Slave Connection Interval\n");
