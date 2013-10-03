@@ -439,6 +439,7 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
             break;
         case AD_GAP_APPEARANCE:
             printf("    Appearance\n");
+            printf("      0x%02X%02X\n", data[i+1], data[i]);
             break;
         case AD_ADV_INTERVAL:
             printf("    Advertising Interval\n");
