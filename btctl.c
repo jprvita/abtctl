@@ -375,18 +375,61 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
 
             break;
         }
-        case AD_UUID16_SOME:
-            printf("    Incomplete list of 16-bit Service UUIDs\n");
-            break;
         case AD_UUID16_ALL:
-            printf("    Complete list of 16-bit Service UUIDs\n");
+        case AD_UUID16_SOME:
+        case AD_SOLICIT_UUID16: {
+            uint8_t count = (length - 1) / sizeof(uint16_t);
+
+            switch (ad_type) {
+                case AD_UUID16_ALL:
+                    printf("    Complete list of 16-bit Service UUIDs: ");
+                    break;
+                case AD_UUID16_SOME:
+                    printf("    Incomplete list of 16-bit Service UUIDs: ");
+                    break;
+                case AD_SOLICIT_UUID16:
+                    printf("    List of 16-bit Service Solicitation UUIDs: ");
+                    break;
+            }
+
+            printf("%u entr%s\n", count, count == 1 ? "y" : "ies");
+
+            for (j = 0; j < count; j++)
+                printf("      0x%02X%02X\n", data[i+j*sizeof(uint16_t)+1],
+                       data[i+j*sizeof(uint16_t)]);
+
             break;
-        case AD_UUID128_SOME:
-            printf("    Incomplete list of 128-bit Service UUIDs\n");
-            break;
+        }
         case AD_UUID128_ALL:
-            printf("    Complete list of 128-bit Service UUIDs\n");
+        case AD_UUID128_SOME:
+        case AD_SOLICIT_UUID128: {
+            uint8_t count = (length - 1) / 16;
+
+            switch (ad_type) {
+                case AD_UUID128_ALL:
+                    printf("    Complete list of 128-bit Service UUIDs: ");
+                    break;
+                case AD_UUID128_SOME:
+                    printf("    Incomplete list of 128-bit Service UUIDs: ");
+                    break;
+                case AD_SOLICIT_UUID128:
+                    printf("    List of 128-bit Service Solicitation UUIDs: ");
+                    break;
+            }
+
+            printf("%u entr%s\n", count, count == 1 ? "y" : "ies");
+
+            for (j = 0; j < count; j++)
+                printf("      %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X"
+                       " %02X %02X %02X %02X %02X %02X\n", data[i+j*16+15],
+                       data[i+j*16+14], data[i+j*16+13], data[i+j*16+12],
+                       data[i+j*16+11], data[i+j*16+10], data[i+j*16+9],
+                       data[i+j*16+8], data[i+j*16+7], data[i+j*16+6],
+                       data[i+j*16+5], data[i+j*16+4], data[i+j*16+3],
+                               data[i+j*16+2], data[i+j*16+1], data[i+j*16]);
+
             break;
+        }
         case AD_NAME_SHORT:
         case AD_NAME_COMPLETE: {
             char name[length];
@@ -422,12 +465,6 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
 
             break;
         }
-        case AD_SOLICIT_UUID16:
-            printf("    List of 16-bit Service Solicitation UUIDs\n");
-            break;
-        case AD_SOLICIT_UUID128:
-            printf("    List of 128-bit Service Solicitation UUIDs\n");
-            break;
         case AD_SERVICE_DATA:
             printf("    Service Data\n");
             break;
