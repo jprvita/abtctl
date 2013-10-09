@@ -35,6 +35,25 @@
 
 #define MAX_LINE_SIZE 64
 
+/* AD types */
+#define AD_FLAGS              0x01
+#define AD_UUID16_SOME        0x02
+#define AD_UUID16_ALL         0x03
+#define AD_UUID128_SOME       0x06
+#define AD_UUID128_ALL        0x07
+#define AD_NAME_SHORT         0x08
+#define AD_NAME_COMPLETE      0x09
+#define AD_TX_POWER           0x0a
+#define AD_SLAVE_CONN_INT     0x12
+#define AD_SOLICIT_UUID16     0x14
+#define AD_SOLICIT_UUID128    0x15
+#define AD_SERVICE_DATA       0x16
+#define AD_PUBLIC_ADDRESS     0x17
+#define AD_RANDOM_ADDRESS     0x18
+#define AD_GAP_APPEARANCE     0x19
+#define AD_ADV_INTERVAL       0x1a
+#define AD_MANUFACTURER_DATA  0xff
+
 /* Data that have to be acessable by the callbacks */
 struct userdata {
     const bt_interface_t *btiface;
@@ -325,24 +344,6 @@ static void cmd_discovery(char *args) {
 static void parse_ad_data(uint8_t *data, uint8_t length) {
     uint8_t i = 0;
     uint8_t ad_type = data[i++];
-
-#define AD_FLAGS              0x01
-#define AD_UUID16_SOME        0x02
-#define AD_UUID16_ALL         0x03
-#define AD_UUID128_SOME       0x06
-#define AD_UUID128_ALL        0x07
-#define AD_NAME_SHORT         0x08
-#define AD_NAME_COMPLETE      0x09
-#define AD_TX_POWER           0x0a
-#define AD_SLAVE_CONN_INT     0x12
-#define AD_SOLICIT_UUID16     0x14
-#define AD_SOLICIT_UUID128    0x15
-#define AD_SERVICE_DATA       0x16
-#define AD_PUBLIC_ADDRESS     0x17
-#define AD_RANDOM_ADDRESS     0x18
-#define AD_GAP_APPEARANCE     0x19
-#define AD_ADV_INTERVAL       0x1a
-#define AD_MANUFACTURER_DATA  0xff
 
     switch (ad_type) {
         uint8_t j;
