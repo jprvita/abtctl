@@ -23,3 +23,12 @@ If you have the source code in right place (see Cloning) all eng builds will
 already include the btctl tool. If you want to build only the tool you can run
 'make btctl' from the AOSP root or 'mm' from the abtctl directory, with the last
 option being noticeably faster.
+
+Running
+=======
+
+abtctl can be run from an adb shell simply typing btctl as root. It will present
+a prompt were commands can be entered, and the 'help' command will print a list
+of all the available commands. Each command also have its own help, which can be
+accessed passing 'help' as the first argument of the command. For example, the
+help of the connect command is accessible through 'connect help'.
