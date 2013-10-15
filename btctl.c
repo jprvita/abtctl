@@ -736,7 +736,6 @@ static void cmd_pair(char *args) {
 
     arg_pos = str_in_list(valid_arguments, arg);
     if (str_in_list(valid_arguments, arg) < 0) {
-
         rl_printf("Invalid argument \"%s\"\n", arg);
         return;
     }
@@ -750,21 +749,21 @@ static void cmd_pair(char *args) {
 
     switch (arg_pos) {
         case 0:
-           status = u.btiface->create_bond(&addr);
+            status = u.btiface->create_bond(&addr);
             if (status != BT_STATUS_SUCCESS) {
                 rl_printf("Failed to create bond, status: %d\n", status);
                 return;
             }
             break;
         case 1:
-           status = u.btiface->cancel_bond(&addr);
+            status = u.btiface->cancel_bond(&addr);
             if (status != BT_STATUS_SUCCESS) {
                 rl_printf("Failed to cancel bond, status: %d\n", status);
                 return;
             }
             break;
         case 2:
-           status = u.btiface->remove_bond(&addr);
+            status = u.btiface->remove_bond(&addr);
             if (status != BT_STATUS_SUCCESS) {
                 rl_printf("Failed to remove bond, status: %d\n", status);
                 return;
