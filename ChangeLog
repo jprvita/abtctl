@@ -1,0 +1,10 @@
+0.1
+===
+
+Provides a basic user prompt and commands to:
+
+ * enable/disable the bluetooth adapter
+ * enable/disable discovery of BR/EDR devices
+ * enable/disable scan of BLE devices
+ * connect/disconnect to/from BLE devices
+ * pair/unpair with BLE devices
