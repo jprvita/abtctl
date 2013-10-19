@@ -32,6 +32,7 @@
 #include <hardware/hardware.h>
 
 #include "util.h"
+#include "rl_helper.h"
 
 #define MAX_LINE_SIZE 64
 
@@ -953,7 +954,7 @@ static void bt_init() {
 }
 
 int main (int argc, char * argv[]) {
-    char line[MAX_LINE_SIZE];
+    rl_init(cmd_process);
 
     printf("Android Bluetooth control tool version 0.1\n");
 
@@ -961,12 +962,9 @@ int main (int argc, char * argv[]) {
 
     cmd_prompt();
 
-    while (!u.quit && fgets(line, MAX_LINE_SIZE, stdin)) {
-        /* remove linefeed */
-        line[strlen(line)-1] = 0;
-
-        cmd_process(line);
-
+    while (!u.quit) {
+        int c = getchar();
+        rl_feed(c);
         if (!u.quit)
             cmd_prompt();
     }
@@ -981,6 +979,6 @@ int main (int argc, char * argv[]) {
     while (u.btiface_initialized)
         usleep(10000);
 
-    printf("\n");
+    rl_quit();
     return 0;
 }
