@@ -671,32 +671,33 @@ static void cmd_connect(char *args) {
 static void bond_state_changed_cb(bt_status_t status, bt_bdaddr_t *bda,
                                   bt_bond_state_t state) {
     char addr_str[BT_ADDRESS_STR_LEN];
+    char state_str[32] = {0};
 
     if (status != BT_STATUS_SUCCESS) {
         rl_printf("Failed to change bond state, status: %d\n", status);
         return;
     }
 
-    rl_printf("Bond state changed for device %s: ",
-              ba2str(bda->address, addr_str));
-
     switch (state) {
         case BT_BOND_STATE_NONE:
-            rl_printf("BT_BOND_STATE_NONE\n");
+            strcpy(state_str, "BT_BOND_STATE_NONE");
             break;
 
         case BT_BOND_STATE_BONDING:
-            rl_printf("BT_BOND_STATE_BONDING\n");
+            strcpy(state_str, "BT_BOND_STATE_BONDING");
             break;
 
         case BT_BOND_STATE_BONDED:
-            rl_printf("BT_BOND_STATE_BONDED\n");
+            strcpy(state_str, "BT_BOND_STATE_BONDED");
             break;
 
         default:
-            rl_printf("Unknown (%d)\n", state);
+            sprintf(state_str, "Unknown (%d)", state);
             break;
     }
+
+    rl_printf("Bond state changed for device %s: %s\n",
+              ba2str(bda->address, addr_str), state_str);
 }
 
 static void cmd_pair(char *args) {
