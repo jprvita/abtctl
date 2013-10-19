@@ -83,12 +83,6 @@ static bt_uuid_t app_uuid = {
             0xbb, 0xb9, 0xf4, 0x1b, 0x46, 0x39, 0x23, 0x36 }
 };
 
-/* Prints the command prompt */
-static void cmd_prompt() {
-    printf("> ");
-    fflush(stdout);
-}
-
 /* Struct that defines a user command */
 typedef struct cmd {
     const char *name;
@@ -135,10 +129,7 @@ static void adapter_state_change_cb(bt_state_t state) {
         bt_status_t status = u.gattiface->client->register_client(&app_uuid);
         if (status != BT_STATUS_SUCCESS)
             printf("Failed to register as a GATT client, status: %d\n", status);
-    } else
-        /* when state goes to BT_STATE_ON prompt will be printed by
-         * register_client_cb() */
-        cmd_prompt();
+    }
 }
 
 /* Enables the Bluetooth adapter */
@@ -181,7 +172,6 @@ static void adapter_properties_cb(bt_status_t status, int num_properties,
 
     if (status != BT_STATUS_SUCCESS) {
         printf("Failed to get adapter properties, error: %i\n", status);
-        cmd_prompt();
         return;
     }
 
@@ -232,8 +222,6 @@ static void adapter_properties_cb(bt_status_t status, int num_properties,
                 break;
         }
     }
-
-    cmd_prompt();
 }
 
 static void device_found_cb(int num_properties, bt_property_t *properties) {
@@ -291,14 +279,11 @@ static void device_found_cb(int num_properties, bt_property_t *properties) {
                 break;
         }
     }
-
-    cmd_prompt();
 }
 
 static void discovery_state_changed_cb(bt_discovery_state_t state) {
     u.discovery_state = state;
     printf("\nDiscovery state changed: %i\n", state);
-    cmd_prompt();
 }
 
 static void cmd_discovery(char *args) {
@@ -527,8 +512,6 @@ static void scan_result_cb(bt_bdaddr_t *bda, int rssi, uint8_t *adv_data) {
 
         i += length;
     }
-
-    cmd_prompt();
 }
 
 static void cmd_scan(char *args) {
@@ -828,8 +811,6 @@ static void register_client_cb(int status, int client_if,
 
     u.client_if = client_if;
     u.client_registered = true;
-
-    cmd_prompt();
 }
 
 /* GATT client callbacks */
@@ -884,9 +865,6 @@ static void thread_event_cb(bt_cb_thread_evt event) {
                 u.gattiface_initialized = 1;
         } else
             printf("Failed to get Bluetooth GATT Interface\n");
-
-        cmd_prompt();
-
     } else
         u.btiface_initialized = 0;
 }
@@ -960,13 +938,9 @@ int main (int argc, char * argv[]) {
 
     bt_init();
 
-    cmd_prompt();
-
     while (!u.quit) {
         int c = getchar();
         rl_feed(c);
-        if (!u.quit)
-            cmd_prompt();
     }
 
     /* Disable adapter on exit */
