@@ -117,7 +117,7 @@ static void cmd_quit(char *args) {
 static void adapter_state_change_cb(bt_state_t state) {
 
     u.adapter_state = state;
-    printf("\nAdapter state changed: %i\n", state);
+    rl_printf("\nAdapter state changed: %i\n", state);
 
     if (state ==  BT_STATE_ON) {
        /* Register as a GATT client with the stack
@@ -128,7 +128,8 @@ static void adapter_state_change_cb(bt_state_t state) {
         */
         bt_status_t status = u.gattiface->client->register_client(&app_uuid);
         if (status != BT_STATUS_SUCCESS)
-            printf("Failed to register as a GATT client, status: %d\n", status);
+            rl_printf("Failed to register as a GATT client, status: %d\n",
+                      status);
     }
 }
 
@@ -137,13 +138,13 @@ static void cmd_enable(char *args) {
     int status;
 
     if (u.adapter_state == BT_STATE_ON) {
-        printf("Bluetooth is already enabled\n");
+        rl_printf("Bluetooth is already enabled\n");
         return;
     }
 
     status = u.btiface->enable();
     if (status != BT_STATUS_SUCCESS)
-        printf("Failed to enable Bluetooth\n");
+        rl_printf("Failed to enable Bluetooth\n");
 }
 
 /* Disables the Bluetooth adapter */
@@ -152,17 +153,17 @@ static void cmd_disable(char *args) {
     int status;
 
     if (u.adapter_state == BT_STATE_OFF) {
-        printf("Bluetooth is already disabled\n");
+        rl_printf("Bluetooth is already disabled\n");
         return;
     }
 
     result = u.gattiface->client->unregister_client(u.client_if);
     if (result != BT_STATUS_SUCCESS)
-        printf("Failed to unregister client, error: %u\n", result);
+        rl_printf("Failed to unregister client, error: %u\n", result);
 
     status = u.btiface->disable();
     if (status != BT_STATUS_SUCCESS)
-        printf("Failed to disable Bluetooth\n");
+        rl_printf("Failed to disable Bluetooth\n");
 }
 
 static void adapter_properties_cb(bt_status_t status, int num_properties,
@@ -171,49 +172,50 @@ static void adapter_properties_cb(bt_status_t status, int num_properties,
     int i;
 
     if (status != BT_STATUS_SUCCESS) {
-        printf("Failed to get adapter properties, error: %i\n", status);
+        rl_printf("Failed to get adapter properties, error: %i\n", status);
         return;
     }
 
-    printf("\nAdapter properties\n");
+    rl_printf("\nAdapter properties\n");
 
     while (num_properties--) {
         bt_property_t prop = properties[num_properties];
 
         switch (prop.type) {
             case BT_PROPERTY_BDNAME:
-                printf("  Name: %s\n", (const char *) prop.val);
+                rl_printf("  Name: %s\n", (const char *) prop.val);
                 break;
 
             case BT_PROPERTY_BDADDR:
-                printf("  Address: %s\n", ba2str((uint8_t *) prop.val,
-                       addr_str));
+                rl_printf("  Address: %s\n", ba2str((uint8_t *) prop.val,
+                          addr_str));
                 break;
 
             case BT_PROPERTY_CLASS_OF_DEVICE:
-                printf("  Class of Device: 0x%x\n", ((uint32_t *) prop.val)[0]);
+                rl_printf("  Class of Device: 0x%x\n",
+                          ((uint32_t *) prop.val)[0]);
                 break;
 
             case BT_PROPERTY_TYPE_OF_DEVICE:
                 switch (((bt_device_type_t *) prop.val)[0]) {
                     case BT_DEVICE_DEVTYPE_BREDR:
-                        printf("  Device Type: BR/EDR only\n");
+                        rl_printf("  Device Type: BR/EDR only\n");
                         break;
                     case BT_DEVICE_DEVTYPE_BLE:
-                        printf("  Device Type: LE only\n");
+                        rl_printf("  Device Type: LE only\n");
                         break;
                     case BT_DEVICE_DEVTYPE_DUAL:
-                        printf("  Device Type: DUAL MODE\n");
+                        rl_printf("  Device Type: DUAL MODE\n");
                         break;
                 }
                 break;
 
             case BT_PROPERTY_ADAPTER_BONDED_DEVICES:
                 i = prop.len / sizeof(bt_bdaddr_t);
-                printf("  Bonded devices: %u\n", i);
+                rl_printf("  Bonded devices: %u\n", i);
                 while (i-- > 0) {
                     uint8_t *addr = ((bt_bdaddr_t *) prop.val)[i].address;
-                    printf("    Address: %s\n", ba2str(addr, addr_str));
+                    rl_printf("    Address: %s\n", ba2str(addr, addr_str));
                 }
                 break;
 
@@ -227,55 +229,60 @@ static void adapter_properties_cb(bt_status_t status, int num_properties,
 static void device_found_cb(int num_properties, bt_property_t *properties) {
     char addr_str[BT_ADDRESS_STR_LEN];
 
-    printf("\nDevice found\n");
+    rl_printf("\nDevice found\n");
 
     while (num_properties--) {
         bt_property_t prop = properties[num_properties];
 
         switch (prop.type) {
             case BT_PROPERTY_BDNAME:
-                printf("  name: %s\n", (const char *) prop.val);
+                rl_printf("  name: %s\n", (const char *) prop.val);
                 break;
 
             case BT_PROPERTY_BDADDR:
-                printf("  addr: %s\n", ba2str((uint8_t *) prop.val, addr_str));
+                rl_printf("  addr: %s\n", ba2str((uint8_t *) prop.val,
+                          addr_str));
                 break;
 
             case BT_PROPERTY_CLASS_OF_DEVICE:
-                printf("  class: 0x%x\n", ((uint32_t *) prop.val)[0]);
+                rl_printf("  class: 0x%x\n", ((uint32_t *) prop.val)[0]);
                 break;
 
             case BT_PROPERTY_TYPE_OF_DEVICE:
                 switch ( ((bt_device_type_t *) prop.val)[0] ) {
                     case BT_DEVICE_DEVTYPE_BREDR:
-                        printf("  type: BR/EDR only\n");
+                        rl_printf("  type: BR/EDR only\n");
                         break;
                     case BT_DEVICE_DEVTYPE_BLE:
-                        printf("  type: LE only\n");
+                        rl_printf("  type: LE only\n");
                         break;
                     case BT_DEVICE_DEVTYPE_DUAL:
-                        printf("  type: DUAL MODE\n");
+                        rl_printf("  type: DUAL MODE\n");
                         break;
                 }
                 break;
 
             case BT_PROPERTY_REMOTE_FRIENDLY_NAME:
-                printf("  alias: %s\n", (const char *) prop.val);
+                rl_printf("  alias: %s\n", (const char *) prop.val);
                 break;
 
             case BT_PROPERTY_REMOTE_RSSI:
-                printf("  rssi: %i\n", ((uint8_t *) prop.val)[0]);
+                rl_printf("  rssi: %i\n", ((uint8_t *) prop.val)[0]);
                 break;
 
             case BT_PROPERTY_REMOTE_VERSION_INFO:
-                printf("  version info:\n");
-                printf("    version: %d\n", ((bt_remote_version_t *) prop.val)->version);
-                printf("    subversion: %d\n", ((bt_remote_version_t *) prop.val)->sub_ver);
-                printf("    manufacturer: %d\n", ((bt_remote_version_t *) prop.val)->manufacturer);
+                rl_printf("  version info:\n");
+                rl_printf("    version: %d\n",
+                          ((bt_remote_version_t *) prop.val)->version);
+                rl_printf("    subversion: %d\n",
+                          ((bt_remote_version_t *) prop.val)->sub_ver);
+                rl_printf("    manufacturer: %d\n",
+                          ((bt_remote_version_t *) prop.val)->manufacturer);
                 break;
 
             default:
-                printf("  Unknown property type:%i len:%i val:%p\n", prop.type, prop.len, prop.val);
+                rl_printf("  Unknown property type:%i len:%i val:%p\n",
+                          prop.type, prop.len, prop.val);
                 break;
         }
     }
@@ -283,7 +290,7 @@ static void device_found_cb(int num_properties, bt_property_t *properties) {
 
 static void discovery_state_changed_cb(bt_discovery_state_t state) {
     u.discovery_state = state;
-    printf("\nDiscovery state changed: %i\n", state);
+    rl_printf("\nDiscovery state changed: %i\n", state);
 }
 
 static void cmd_discovery(char *args) {
@@ -293,40 +300,40 @@ static void cmd_discovery(char *args) {
     line_get_str(&args, arg);
 
     if (arg[0] == 0 || strcmp(arg, "help") == 0) {
-        printf("discovery -- Controls discovery of nearby devices\n");
-        printf("Arguments:\n");
-        printf("start   starts a new discovery session\n");
-        printf("stop    interrupts an ongoing discovery session\n");
+        rl_printf("discovery -- Controls discovery of nearby devices\n");
+        rl_printf("Arguments:\n");
+        rl_printf("start   starts a new discovery session\n");
+        rl_printf("stop    interrupts an ongoing discovery session\n");
 
     } else if (strcmp(arg, "start") == 0) {
 
         if (u.adapter_state != BT_STATE_ON) {
-            printf("Unable to start discovery: Adapter is down\n");
+            rl_printf("Unable to start discovery: Adapter is down\n");
             return;
         }
 
         if (u.discovery_state == BT_DISCOVERY_STARTED) {
-            printf("Discovery is already running\n");
+            rl_printf("Discovery is already running\n");
             return;
         }
 
         status = u.btiface->start_discovery();
         if (status != BT_STATUS_SUCCESS)
-            printf("Failed to start discovery\n");
+            rl_printf("Failed to start discovery\n");
 
     } else if (strcmp(arg, "stop") == 0) {
 
         if (u.discovery_state == BT_DISCOVERY_STOPPED) {
-            printf("Unable to stop discovery: Discovery is not running\n");
+            rl_printf("Unable to stop discovery: Discovery is not running\n");
             return;
         }
 
         status = u.btiface->cancel_discovery();
         if (status != BT_STATUS_SUCCESS)
-            printf("Failed to stop discovery\n");
+            rl_printf("Failed to stop discovery\n");
 
     } else
-        printf("Invalid argument \"%s\"\n", arg);
+        rl_printf("Invalid argument \"%s\"\n", arg);
 }
 
 static void parse_ad_data(uint8_t *data, uint8_t length) {
@@ -350,17 +357,17 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
                 {0xFF, NULL}
             };
 
-            printf("    Flags\n");
+            rl_printf("    Flags\n");
 
             for (j = 0; eir_flags_table[j].str; j++) {
                 if (data[i] & (1 << eir_flags_table[j].bit)) {
-                    printf("      %s\n", eir_flags_table[j].str);
+                    rl_printf("      %s\n", eir_flags_table[j].str);
                     mask &= ~(1 << eir_flags_table[j].bit);
                 }
             }
 
             if (mask)
-                printf("      Unknown flags (0x%02X)\n", mask);
+                rl_printf("      Unknown flags (0x%02X)\n", mask);
 
             break;
         }
@@ -371,21 +378,22 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
 
             switch (ad_type) {
                 case AD_UUID16_ALL:
-                    printf("    Complete list of 16-bit Service UUIDs: ");
+                    rl_printf("    Complete list of 16-bit Service UUIDs: ");
                     break;
                 case AD_UUID16_SOME:
-                    printf("    Incomplete list of 16-bit Service UUIDs: ");
+                    rl_printf("    Incomplete list of 16-bit Service UUIDs: ");
                     break;
                 case AD_SOLICIT_UUID16:
-                    printf("    List of 16-bit Service Solicitation UUIDs: ");
+                    rl_printf("    List of 16-bit Service Solicitation "
+                              "UUIDs: ");
                     break;
             }
 
-            printf("%u entr%s\n", count, count == 1 ? "y" : "ies");
+            rl_printf("%u entr%s\n", count, count == 1 ? "y" : "ies");
 
             for (j = 0; j < count; j++)
-                printf("      0x%02X%02X\n", data[i+j*sizeof(uint16_t)+1],
-                       data[i+j*sizeof(uint16_t)]);
+                rl_printf("      0x%02X%02X\n", data[i+j*sizeof(uint16_t)+1],
+                          data[i+j*sizeof(uint16_t)]);
 
             break;
         }
@@ -396,26 +404,28 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
 
             switch (ad_type) {
                 case AD_UUID128_ALL:
-                    printf("    Complete list of 128-bit Service UUIDs: ");
+                    rl_printf("    Complete list of 128-bit Service UUIDs: ");
                     break;
                 case AD_UUID128_SOME:
-                    printf("    Incomplete list of 128-bit Service UUIDs: ");
+                    rl_printf("    Incomplete list of 128-bit Service UUIDs: ");
                     break;
                 case AD_SOLICIT_UUID128:
-                    printf("    List of 128-bit Service Solicitation UUIDs: ");
+                    rl_printf("    List of 128-bit Service Solicitation "
+                              "UUIDs: ");
                     break;
             }
 
-            printf("%u entr%s\n", count, count == 1 ? "y" : "ies");
+            rl_printf("%u entr%s\n", count, count == 1 ? "y" : "ies");
 
             for (j = 0; j < count; j++)
-                printf("      %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X"
-                       " %02X %02X %02X %02X %02X %02X\n", data[i+j*16+15],
-                       data[i+j*16+14], data[i+j*16+13], data[i+j*16+12],
-                       data[i+j*16+11], data[i+j*16+10], data[i+j*16+9],
-                       data[i+j*16+8], data[i+j*16+7], data[i+j*16+6],
-                       data[i+j*16+5], data[i+j*16+4], data[i+j*16+3],
-                               data[i+j*16+2], data[i+j*16+1], data[i+j*16]);
+                rl_printf("      %02X %02X %02X %02X %02X %02X %02X %02X %02X "
+                          "%02X %02X %02X %02X %02X %02X %02X\n",
+                          data[i+j*16+15], data[i+j*16+14], data[i+j*16+13],
+                          data[i+j*16+12], data[i+j*16+11], data[i+j*16+10],
+                          data[i+j*16+9], data[i+j*16+8], data[i+j*16+7],
+                          data[i+j*16+6], data[i+j*16+5], data[i+j*16+4],
+                          data[i+j*16+3], data[i+j*16+2], data[i+j*16+1],
+                          data[i+j*16]);
 
             break;
         }
@@ -427,70 +437,70 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
             memcpy(name, &data[i], length-1);
 
             if (ad_type == AD_NAME_SHORT)
-                printf("    Shortened Local Name\n");
+                rl_printf("    Shortened Local Name\n");
             else
-                printf("    Complete Local Name\n");
+                rl_printf("    Complete Local Name\n");
 
-            printf("      %s\n", name);
+            rl_printf("      %s\n", name);
 
             break;
         }
         case AD_TX_POWER:
-            printf("    TX Power Level\n");
-            printf("      %d\n", (int8_t) data[i]);
+            rl_printf("    TX Power Level\n");
+            rl_printf("      %d\n", (int8_t) data[i]);
             break;
         case AD_SLAVE_CONN_INT: {
             uint16_t min, max;
 
-            printf("    Slave Connection Interval\n");
+            rl_printf("    Slave Connection Interval\n");
 
             min = data[i] + (data[i+1] << 4);
             if (min >= 0x0006 && min <= 0x0c80)
-                printf("      Minimum = %.2f\n", (float) min * 1.25);
+                rl_printf("      Minimum = %.2f\n", (float) min * 1.25);
 
             max = data[i+2] + (data[i+3] << 4);
             if (max >= 0x0006 && max <= 0x0c80)
-                printf("      Maximum = %.2f\n", (float) max * 1.25);
+                rl_printf("      Maximum = %.2f\n", (float) max * 1.25);
 
             break;
         }
         case AD_SERVICE_DATA:
-            printf("    Service Data\n");
+            rl_printf("    Service Data\n");
             break;
         case AD_PUBLIC_ADDRESS:
         case AD_RANDOM_ADDRESS:
             if (ad_type == AD_PUBLIC_ADDRESS)
-                printf("    Public Target Address\n");
+                rl_printf("    Public Target Address\n");
             else
-                printf("    Random Target Address\n");
+                rl_printf("    Random Target Address\n");
 
-            printf("      %02X:%02X:%02X:%02X:%02X:%02X\n", data[i+5],
-                   data[i+4], data[i+3], data[i+2], data[i+1], data[i]);
+            rl_printf("      %02X:%02X:%02X:%02X:%02X:%02X\n", data[i+5],
+                      data[i+4], data[i+3], data[i+2], data[i+1], data[i]);
             break;
         case AD_GAP_APPEARANCE:
-            printf("    Appearance\n");
-            printf("      0x%02X%02X\n", data[i+1], data[i]);
+            rl_printf("    Appearance\n");
+            rl_printf("      0x%02X%02X\n", data[i+1], data[i]);
             break;
         case AD_ADV_INTERVAL: {
             uint16_t adv_interval;
 
-            printf("    Advertising Interval\n");
+            rl_printf("    Advertising Interval\n");
 
             adv_interval = data[i] + (data[i+1] << 4);
-            printf("      %.2f\n", (float) adv_interval * 0.625);
+            rl_printf("      %.2f\n", (float) adv_interval * 0.625);
 
             break;
         }
         case AD_MANUFACTURER_DATA:
-            printf("    Manufacturer-specific data\n");
-            printf("      Company ID: 0x%02X%02X\n", data[i+1], data[i]);
-            printf("      Data:");
+            rl_printf("    Manufacturer-specific data\n");
+            rl_printf("      Company ID: 0x%02X%02X\n", data[i+1], data[i]);
+            rl_printf("      Data:");
             for (j = i+2; j < i+length; j++)
-                printf(" %02X", data[j]);
-            printf("\n");
+                rl_printf(" %02X", data[j]);
+            rl_printf("\n");
             break;
         default:
-            printf("    Invalid data type 0x%02X\n", ad_type);
+            rl_printf("    Invalid data type 0x%02X\n", ad_type);
             break;
     }
 }
@@ -499,11 +509,11 @@ static void scan_result_cb(bt_bdaddr_t *bda, int rssi, uint8_t *adv_data) {
     char addr_str[BT_ADDRESS_STR_LEN];
     uint8_t i = 0;
 
-    printf("\nBLE device found\n");
-    printf("  Address: %s\n", ba2str(bda->address, addr_str));
-    printf("  RSSI: %d\n", rssi);
+    rl_printf("\nBLE device found\n");
+    rl_printf("  Address: %s\n", ba2str(bda->address, addr_str));
+    rl_printf("  RSSI: %d\n", rssi);
 
-    printf("  Advertising Data:\n");
+    rl_printf("  Advertising Data:\n");
     while (i < 31 && adv_data[i] != 0) {
         uint8_t length, ad_type, j;
 
@@ -519,33 +529,34 @@ static void cmd_scan(char *args) {
     char arg[MAX_LINE_SIZE];
 
     if (u.gattiface == NULL) {
-        printf("Unable to start/stop BLE scan: GATT interface not available\n");
+        rl_printf("Unable to start/stop BLE scan: GATT interface not "
+                  "available\n");
         return;
     }
 
     line_get_str(&args, arg);
 
     if (arg[0] == 0 || strcmp(arg, "help") == 0) {
-        printf("scan -- Controls BLE scan of nearby devices\n");
-        printf("Arguments:\n");
-        printf("start   starts a new scan session\n");
-        printf("stop    interrupts an ongoing scan session\n");
+        rl_printf("scan -- Controls BLE scan of nearby devices\n");
+        rl_printf("Arguments:\n");
+        rl_printf("start   starts a new scan session\n");
+        rl_printf("stop    interrupts an ongoing scan session\n");
 
     } else if (strcmp(arg, "start") == 0) {
 
         if (u.adapter_state != BT_STATE_ON) {
-            printf("Unable to start discovery: Adapter is down\n");
+            rl_printf("Unable to start discovery: Adapter is down\n");
             return;
         }
 
         if (u.scan_state == 1) {
-            printf("Scan is already running\n");
+            rl_printf("Scan is already running\n");
             return;
         }
 
         status = u.gattiface->client->scan(u.client_if, 1);
         if (status != BT_STATUS_SUCCESS) {
-            printf("Failed to start discovery\n");
+            rl_printf("Failed to start discovery\n");
             return;
         }
 
@@ -554,20 +565,20 @@ static void cmd_scan(char *args) {
     } else if (strcmp(arg, "stop") == 0) {
 
         if (u.scan_state == 0) {
-            printf("Unable to stop scan: Scan is not running\n");
+            rl_printf("Unable to stop scan: Scan is not running\n");
             return;
         }
 
         status = u.gattiface->client->scan(u.client_if, 0);
         if (status != BT_STATUS_SUCCESS) {
-            printf("Failed to stop scan\n");
+            rl_printf("Failed to stop scan\n");
             return;
         }
 
         u.scan_state = 0;
 
     } else
-        printf("Invalid argument \"%s\"\n", arg);
+        rl_printf("Invalid argument \"%s\"\n", arg);
 }
 
 static void connect_cb(int conn_id, int status, int client_if,
@@ -575,13 +586,13 @@ static void connect_cb(int conn_id, int status, int client_if,
     char addr_str[BT_ADDRESS_STR_LEN];
 
     if (status != 0) {
-        printf("Failed to connect to device %s, status: %i\n",
-               ba2str(bda->address, addr_str), status);
+        rl_printf("Failed to connect to device %s, status: %i\n",
+                  ba2str(bda->address, addr_str), status);
         return;
     }
 
-    printf("Connected to device %s, conn_id: %d, client_if: %d\n",
-           ba2str(bda->address, addr_str), conn_id, client_if);
+    rl_printf("Connected to device %s, conn_id: %d, client_if: %d\n",
+              ba2str(bda->address, addr_str), conn_id, client_if);
     u.conn_id = conn_id;
 }
 
@@ -589,9 +600,9 @@ static void disconnect_cb(int conn_id, int status, int client_if,
                           bt_bdaddr_t *bda) {
     char addr_str[BT_ADDRESS_STR_LEN];
 
-    printf("Disconnected from device %s, conn_id: %d, client_if: %d, "
-           "status: %d\n", ba2str(bda->address, addr_str), conn_id, client_if,
-           status);
+    rl_printf("Disconnected from device %s, conn_id: %d, client_if: %d, "
+              "status: %d\n", ba2str(bda->address, addr_str), conn_id,
+              client_if, status);
 
     u.conn_id = 0;
 }
@@ -600,14 +611,14 @@ static void cmd_disconnect(char *args) {
     bt_status_t status;
 
     if (u.conn_id <= 0) {
-        printf("Device not connected\n");
+        rl_printf("Device not connected\n");
         return;
     }
 
     status = u.gattiface->client->disconnect(u.client_if, &u.remote_addr,
                                              u.conn_id);
     if (status != BT_STATUS_SUCCESS) {
-        printf("Failed to disconnect, status: %d\n", status);
+        rl_printf("Failed to disconnect, status: %d\n", status);
         return;
     }
 }
@@ -616,8 +627,8 @@ void ssp_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
             uint32_t cod, bt_ssp_variant_t pairing_variant, uint32_t pass_key) {
     char addr_str[BT_ADDRESS_STR_LEN];
 
-    printf("Remote addr: %s\n", ba2str(remote_bd_addr->address, addr_str));
-    printf("Enter passkey on peer device: %d\n", pass_key);
+    rl_printf("Remote addr: %s\n", ba2str(remote_bd_addr->address, addr_str));
+    rl_printf("Enter passkey on peer device: %d\n", pass_key);
 }
 
 static void cmd_connect(char *args) {
@@ -626,17 +637,17 @@ static void cmd_connect(char *args) {
     int ret;
 
     if (u.gattiface == NULL) {
-        printf("Unable to BLE connect: GATT interface not available\n");
+        rl_printf("Unable to BLE connect: GATT interface not available\n");
         return;
     }
 
     if (u.adapter_state != BT_STATE_ON) {
-        printf("Unable to connect: Adapter is down\n");
+        rl_printf("Unable to connect: Adapter is down\n");
         return;
     }
 
     if (u.client_registered == false) {
-        printf("Unable to connect: We're not registered as GATT client\n");
+        rl_printf("Unable to connect: We're not registered as GATT client\n");
         return;
     }
 
@@ -644,15 +655,15 @@ static void cmd_connect(char *args) {
 
     ret = str2ba(arg, &u.remote_addr);
     if (ret != 0) {
-        printf("Unable to connect: Invalid bluetooth address: %s\n", arg);
+        rl_printf("Unable to connect: Invalid bluetooth address: %s\n", arg);
         return;
     }
 
-    printf("Connecting to: %s\n", arg);
+    rl_printf("Connecting to: %s\n", arg);
 
     status = u.gattiface->client->connect(u.client_if, &u.remote_addr, true);
     if (status != BT_STATUS_SUCCESS) {
-        printf("Failed to connect, status: %d\n", status);
+        rl_printf("Failed to connect, status: %d\n", status);
         return;
     }
 }
@@ -662,28 +673,28 @@ static void bond_state_changed_cb(bt_status_t status, bt_bdaddr_t *bda,
     char addr_str[BT_ADDRESS_STR_LEN];
 
     if (status != BT_STATUS_SUCCESS) {
-        printf("Failed to change bond state, status: %d\n", status);
+        rl_printf("Failed to change bond state, status: %d\n", status);
         return;
     }
 
-    printf("Bond state changed for device %s: ",
-           ba2str(bda->address, addr_str));
+    rl_printf("Bond state changed for device %s: ",
+              ba2str(bda->address, addr_str));
 
     switch (state) {
         case BT_BOND_STATE_NONE:
-            printf("BT_BOND_STATE_NONE\n");
+            rl_printf("BT_BOND_STATE_NONE\n");
             break;
 
         case BT_BOND_STATE_BONDING:
-            printf("BT_BOND_STATE_BONDING\n");
+            rl_printf("BT_BOND_STATE_BONDING\n");
             break;
 
         case BT_BOND_STATE_BONDED:
-            printf("BT_BOND_STATE_BONDED\n");
+            rl_printf("BT_BOND_STATE_BONDED\n");
             break;
 
         default:
-            printf("Unknown (%d)\n", state);
+            rl_printf("Unknown (%d)\n", state);
             break;
     }
 }
@@ -702,37 +713,37 @@ static void cmd_pair(char *args) {
     };
 
     if (u.btiface == NULL) {
-        printf("Unable to BLE pair: Bluetooth interface not available\n");
+        rl_printf("Unable to BLE pair: Bluetooth interface not available\n");
         return;
     }
 
     if (u.adapter_state != BT_STATE_ON) {
-        printf("Unable to pair: Adapter is down\n");
+        rl_printf("Unable to pair: Adapter is down\n");
         return;
     }
 
     line_get_str(&args, arg);
 
     if (arg[0] == 0 || strcmp(arg, "help") == 0) {
-        printf("bond -- Controls BLE bond process\n");
-        printf("Arguments:\n");
-        printf("create <address>   start bond process to address\n");
-        printf("cancel <address>   cancel bond process to address\n");
-        printf("remove <address>   remove bond to address\n");
+        rl_printf("bond -- Controls BLE bond process\n");
+        rl_printf("Arguments:\n");
+        rl_printf("create <address>   start bond process to address\n");
+        rl_printf("cancel <address>   cancel bond process to address\n");
+        rl_printf("remove <address>   remove bond to address\n");
         return;
     }
 
     arg_pos = str_in_list(valid_arguments, arg);
     if (str_in_list(valid_arguments, arg) < 0) {
 
-        printf("Invalid argument \"%s\"\n", arg);
+        rl_printf("Invalid argument \"%s\"\n", arg);
         return;
     }
 
     line_get_str(&args, arg);
     ret = str2ba(arg, &addr);
     if (ret != 0) {
-        printf("Invalid bluetooth address: %s\n", arg);
+        rl_printf("Invalid bluetooth address: %s\n", arg);
         return;
     }
 
@@ -740,21 +751,21 @@ static void cmd_pair(char *args) {
         case 0:
            status = u.btiface->create_bond(&addr);
             if (status != BT_STATUS_SUCCESS) {
-                printf("Failed to create bond, status: %d\n", status);
+                rl_printf("Failed to create bond, status: %d\n", status);
                 return;
             }
             break;
         case 1:
            status = u.btiface->cancel_bond(&addr);
             if (status != BT_STATUS_SUCCESS) {
-                printf("Failed to cancel bond, status: %d\n", status);
+                rl_printf("Failed to cancel bond, status: %d\n", status);
                 return;
             }
             break;
         case 2:
            status = u.btiface->remove_bond(&addr);
             if (status != BT_STATUS_SUCCESS) {
-                printf("Failed to remove bond, status: %d\n", status);
+                rl_printf("Failed to remove bond, status: %d\n", status);
                 return;
             }
             break;
@@ -786,7 +797,7 @@ static void cmd_process(char *line) {
 
     if (strcmp(cmd, "help") == 0) {
         for (i = 0; cmd_list[i].name != NULL; i++)
-            printf("%s %s\n", cmd_list[i].name, cmd_list[i].description);
+            rl_printf("%s %s\n", cmd_list[i].name, cmd_list[i].description);
         return;
     }
 
@@ -796,18 +807,19 @@ static void cmd_process(char *line) {
             return;
         }
 
-    printf("%s: unknown command, use 'help' for a list of available commands\n", cmd);
+    rl_printf("%s: unknown command, use 'help' for a list of available "
+              "commands\n", cmd);
 }
 
 static void register_client_cb(int status, int client_if,
                                bt_uuid_t *app_uuid) {
 
     if (status != BT_STATUS_SUCCESS) {
-        printf("Failed to register client, status: %d\n", status);
+        rl_printf("Failed to register client, status: %d\n", status);
         return;
     }
 
-    printf("Registered!, client_if: %d\n", client_if);
+    rl_printf("Registered!, client_if: %d\n", client_if);
 
     u.client_if = client_if;
     u.client_registered = true;
@@ -851,7 +863,8 @@ static const btgatt_callbacks_t gattcbs = {
  * be associated or dessociated with the JVM
  */
 static void thread_event_cb(bt_cb_thread_evt event) {
-    printf("\nBluetooth interface %s\n", event == ASSOCIATE_JVM ? "ready" : "finished");
+    rl_printf("\nBluetooth interface %s\n",
+              event == ASSOCIATE_JVM ? "ready" : "finished");
     if (event == ASSOCIATE_JVM) {
         u.btiface_initialized = 1;
 
@@ -859,12 +872,13 @@ static void thread_event_cb(bt_cb_thread_evt event) {
         if (u.gattiface != NULL) {
             bt_status_t status = u.gattiface->init(&gattcbs);
             if (status != BT_STATUS_SUCCESS) {
-                printf("Failed to initialize Bluetooth GATT interface, status: %d\n", status);
+                rl_printf("Failed to initialize Bluetooth GATT interface, "
+                          "status: %d\n", status);
                 u.gattiface = NULL;
             } else
                 u.gattiface_initialized = 1;
         } else
-            printf("Failed to get Bluetooth GATT Interface\n");
+            rl_printf("Failed to get Bluetooth GATT Interface\n");
     } else
         u.btiface_initialized = 0;
 }
@@ -904,11 +918,11 @@ static void bt_init() {
         errno = status;
         err(1, "Failed to get the Bluetooth module");
     }
-    printf("Bluetooth stack infomation:\n");
-    printf("    id = %s\n", module->id);
-    printf("    name = %s\n", module->name);
-    printf("    author = %s\n", module->author);
-    printf("    HAL API version = %d\n", module->hal_api_version);
+    rl_printf("Bluetooth stack infomation:\n");
+    rl_printf("    id = %s\n", module->id);
+    rl_printf("    name = %s\n", module->name);
+    rl_printf("    author = %s\n", module->author);
+    rl_printf("    HAL API version = %d\n", module->hal_api_version);
 
     /* Get the Bluetooth hardware device */
     status = module->methods->open(module, BT_STACK_MODULE_ID, &hwdev);
@@ -916,8 +930,8 @@ static void bt_init() {
         errno = status;
         err(2, "Failed to get the Bluetooth hardware device");
     }
-    printf("Bluetooth device infomation:\n");
-    printf("    API version = %d\n", hwdev->version);
+    rl_printf("Bluetooth device infomation:\n");
+    rl_printf("    API version = %d\n", hwdev->version);
 
     /* Get the Bluetooth interface */
     btdev = (bluetooth_device_t *) hwdev;
@@ -934,7 +948,7 @@ static void bt_init() {
 int main (int argc, char * argv[]) {
     rl_init(cmd_process);
 
-    printf("Android Bluetooth control tool version 0.1\n");
+    rl_printf("Android Bluetooth control tool version 0.1\n");
 
     bt_init();
 
@@ -948,7 +962,7 @@ int main (int argc, char * argv[]) {
         cmd_disable(NULL);
 
     /* Cleanup the Bluetooth interface */
-    printf("Processing Bluetooth interface cleanup");
+    rl_printf("Processing Bluetooth interface cleanup\n");
     u.btiface->cleanup();
     while (u.btiface_initialized)
         usleep(10000);
