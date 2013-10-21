@@ -94,6 +94,7 @@ typedef struct cmd {
 typedef enum {
     NORMAL_PSTATE,
     SSP_CONSENT_PSTATE,
+    SSP_ENTRY_PSTATE
 } prompt_state_t;
 
 prompt_state_t prompt_state = NORMAL_PSTATE;
@@ -109,6 +110,10 @@ void change_prompt_state(prompt_state_t new_state) {
             break;
         case SSP_CONSENT_PSTATE:
             sprintf(prompt_line, "Pair with %s (Y/N)? ",
+                    ba2str(r_bd_addr.address, addr_str));
+            break;
+        case SSP_ENTRY_PSTATE:
+            sprintf(prompt_line, "Entry PIN code of dev %s: ",
                     ba2str(r_bd_addr.address, addr_str));
             break;
     }
@@ -660,6 +665,14 @@ void do_ssp_reply(const bt_bdaddr_t *bd_addr, bt_ssp_variant_t variant,
     }
 }
 
+void pin_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
+                    uint32_t cod) {
+
+    /* ask user which PIN code is showed at remote device */
+    memcpy(&r_bd_addr, remote_bd_addr, sizeof(r_bd_addr));
+    change_prompt_state(SSP_ENTRY_PSTATE);
+}
+
 void ssp_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
                     uint32_t cod, bt_ssp_variant_t pairing_variant,
                     uint32_t pass_key) {
@@ -846,6 +859,14 @@ static void cmd_process(char *line) {
     if (line[0] == 0)
         return;
 
+    if (prompt_state == SSP_ENTRY_PSTATE) {
+        bt_status_t status = u.btiface->pin_reply(&r_bd_addr, true,
+                                                  strlen(line),
+                                                  (bt_pin_code_t *) line);
+        change_prompt_state(NORMAL_PSTATE);
+        return;
+    }
+
     line_get_str(&line, cmd);
 
     if (strcmp(cmd, "help") == 0) {
@@ -944,7 +965,7 @@ static bt_callbacks_t btcbs = {
     NULL, /* remote_device_properties_callback */
     device_found_cb, /* Called for every device found */
     discovery_state_changed_cb, /* Called every time the discovery state changes */
-    NULL, /* pin_request_callback */
+    pin_request_cb, /* pin_request_callback */
     ssp_request_cb, /* ssp_request_callback */
     bond_state_changed_cb, /* bond_state_changed_callback */
     NULL, /* acl_state_changed_callback */
