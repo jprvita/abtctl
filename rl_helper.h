@@ -9,5 +9,7 @@ void rl_init(line_process_callback cb);
 void rl_quit();
 /* add char to line buffer */
 void rl_feed(int c);
+/* printf version */
+void rl_printf(const char *fmt, ...);
 
 #endif // __RL_HELPER_H__

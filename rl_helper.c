@@ -116,3 +116,15 @@ void rl_feed(int c) {
             break;
     }
 }
+
+void rl_printf(const char *fmt, ...) {
+    va_list ap;
+
+    va_start(ap, fmt);
+
+    rl_clear_line();
+    vprintf(fmt, ap);
+    va_end(ap);
+
+    rl_reprint_prompt();
+}
