@@ -375,21 +375,21 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
         case AD_UUID16_SOME:
         case AD_SOLICIT_UUID16: {
             uint8_t count = (length - 1) / sizeof(uint16_t);
+            const char *msg = NULL;
 
             switch (ad_type) {
                 case AD_UUID16_ALL:
-                    rl_printf("    Complete list of 16-bit Service UUIDs: ");
+                    msg = "    Complete list of 16-bit Service UUIDs: ";
                     break;
                 case AD_UUID16_SOME:
-                    rl_printf("    Incomplete list of 16-bit Service UUIDs: ");
+                    msg = "    Incomplete list of 16-bit Service UUIDs: ";
                     break;
                 case AD_SOLICIT_UUID16:
-                    rl_printf("    List of 16-bit Service Solicitation "
-                              "UUIDs: ");
+                    msg = "    List of 16-bit Service Solicitation UUIDs: ";
                     break;
             }
 
-            rl_printf("%u entr%s\n", count, count == 1 ? "y" : "ies");
+            rl_printf("%s%u entr%s\n", msg, count, count == 1 ? "y" : "ies");
 
             for (j = 0; j < count; j++)
                 rl_printf("      0x%02X%02X\n", data[i+j*sizeof(uint16_t)+1],
@@ -401,21 +401,21 @@ static void parse_ad_data(uint8_t *data, uint8_t length) {
         case AD_UUID128_SOME:
         case AD_SOLICIT_UUID128: {
             uint8_t count = (length - 1) / 16;
+            const char *msg = NULL;
 
             switch (ad_type) {
                 case AD_UUID128_ALL:
-                    rl_printf("    Complete list of 128-bit Service UUIDs: ");
+                    msg = "    Complete list of 128-bit Service UUIDs: ";
                     break;
                 case AD_UUID128_SOME:
-                    rl_printf("    Incomplete list of 128-bit Service UUIDs: ");
+                    msg = "    Incomplete list of 128-bit Service UUIDs: ";
                     break;
                 case AD_SOLICIT_UUID128:
-                    rl_printf("    List of 128-bit Service Solicitation "
-                              "UUIDs: ");
+                    msg = "    List of 128-bit Service Solicitation UUIDs: ";
                     break;
             }
 
-            rl_printf("%u entr%s\n", count, count == 1 ? "y" : "ies");
+            rl_printf("%s%u entr%s\n", msg, count, count == 1 ? "y" : "ies");
 
             for (j = 0; j < count; j++)
                 rl_printf("      %02X %02X %02X %02X %02X %02X %02X %02X %02X "
