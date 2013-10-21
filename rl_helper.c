@@ -27,6 +27,7 @@
 #include "rl_helper.h"
 
 #define MAX_LINE_BUFFER 512
+#define MAX_SEQ 5
 
 typedef enum {
     K_ESC       = 0x1b,
@@ -41,9 +42,43 @@ typedef enum {
 line_process_callback line_cb;
 char lnbuf[MAX_LINE_BUFFER]; /* buffer for our line editing */
 size_t pos = 0;
+char seq[MAX_SEQ]; /* sequence buffer (escape codes) */
+size_t seq_pos = 0;
+
+typedef struct {
+    char sequence[MAX_SEQ];
+    int code;
+} char_sequence;
+
+/* code sequence definitions */
+const char_sequence seqs[] = {
+    {
+        .sequence = {K_ESC, '[', 'A'},
+        .code = K_UP
+    },
+    {
+        .sequence = {K_ESC, '[', 'B'},
+        .code = K_DOWN
+    },
+    {
+        .sequence = {K_ESC, '[', 'C'},
+        .code = K_RIGHT
+    },
+    {
+        .sequence = {K_ESC, '[', 'D'},
+        .code = K_LEFT
+    },
+};
+
+void rl_clear_seq() {
+
+    memset(seq, 0, sizeof(seq));
+    seq_pos = 0;
+}
 
 void rl_clear() {
 
+    rl_clear_seq();
     memset(lnbuf, 0, sizeof(lnbuf));
     pos = 0;
 }
@@ -79,7 +114,41 @@ void rl_quit() {
     rl_clear_line();
 }
 
+/* returns 1 if char was consumed, 0 otherwise */
+int rl_parse_seq(int *c) {
+
+    if (seq_pos == 0) {
+        /* starts a sequence of chars */
+        if (*c == K_ESC) {
+            seq[seq_pos++] = *c;
+            return 1;
+        } else
+            return 0;
+    } else {
+        size_t i;
+        if (seq_pos >= sizeof(seq)) {
+            /* we lost the sequence */
+            rl_clear_seq();
+            return 0;
+        }
+
+        seq[seq_pos++] = *c;
+        for (i = 0; i < sizeof(seqs) / sizeof(char_sequence); i++) {
+            if (memcmp(seq, seqs[i].sequence, sizeof(seq)) == 0) {
+                /* found sequence, return special code */
+                *c = seqs[i].code;
+                rl_clear_seq();
+                return 0;
+            }
+        }
+        return 1;
+    }
+}
+
 void rl_feed(int c) {
+
+    if (rl_parse_seq(&c))
+        return;
 
     switch (c) {
         case '\r':
