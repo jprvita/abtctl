@@ -37,6 +37,8 @@ typedef enum {
     K_DOWN  = 0x101,
     K_RIGHT = 0x102,
     K_LEFT  = 0x103,
+    K_END   = 0x104,
+    K_HOME  = 0x105,
 } keys_t;
 
 line_process_callback line_cb;
@@ -69,6 +71,14 @@ const char_sequence seqs[] = {
         .sequence = {K_ESC, '[', 'D'},
         .code = K_LEFT
     },
+    {
+        .sequence = {K_ESC, 'O', 'F'},
+        .code = K_END
+    },
+    {
+        .sequence = {K_ESC, 'O', 'H'},
+        .code = K_HOME
+    },
 };
 
 void rl_clear_seq() {
@@ -91,9 +101,12 @@ void rl_clear_line() {
 }
 
 void rl_reprint_prompt() {
+    size_t len = strlen(lnbuf);
 
     rl_clear_line();
     printf("%s%s", prompt, lnbuf);
+    while (len-- > pos)
+        putchar('\b'); /* backspace */
     fflush(stdout);
 }
 
@@ -179,7 +192,24 @@ void rl_feed(int c) {
             /* history handle */
             break;
         case K_RIGHT:
+            if (pos < strlen(lnbuf)) {
+                pos++;
+                rl_reprint_prompt();
+            }
+            break;
         case K_LEFT:
+            if (pos > 0) {
+                pos--;
+                rl_reprint_prompt();
+            }
+            break;
+        case K_END:
+            pos = strlen(lnbuf);
+            rl_reprint_prompt();
+            break;
+        case K_HOME:
+            pos = 0;
+            rl_reprint_prompt();
             break;
         default:
             if (isprint(c)) {
