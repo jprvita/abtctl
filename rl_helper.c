@@ -44,6 +44,7 @@ char lnbuf[MAX_LINE_BUFFER]; /* buffer for our line editing */
 size_t pos = 0;
 char seq[MAX_SEQ]; /* sequence buffer (escape codes) */
 size_t seq_pos = 0;
+const char *prompt = "> ";
 
 typedef struct {
     char sequence[MAX_SEQ];
@@ -92,7 +93,7 @@ void rl_clear_line() {
 void rl_reprint_prompt() {
 
     rl_clear_line();
-    printf("> %s", lnbuf);
+    printf("%s%s", prompt, lnbuf);
     fflush(stdout);
 }
 
@@ -106,6 +107,12 @@ void rl_init(line_process_callback cb) {
 
     rl_clear();
     line_cb = cb;
+}
+
+void rl_set_prompt(const char *str) {
+
+    prompt = str;
+    rl_reprint_prompt();
 }
 
 void rl_quit() {

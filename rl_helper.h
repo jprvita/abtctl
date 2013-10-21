@@ -5,6 +5,8 @@ typedef void (*line_process_callback)(char *line);
 
 /* initializes buffers and set line process callback */
 void rl_init(line_process_callback cb);
+/* configure prompt string, (eg "> ") */
+void rl_set_prompt(const char *str);
 /* close resources */
 void rl_quit();
 /* add char to line buffer */
