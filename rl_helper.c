@@ -29,6 +29,13 @@
 #define MAX_LINE_BUFFER 512
 #define MAX_SEQ 5
 
+#define MIN(a, b) \
+    ({ \
+        __typeof__(a) _a = (a); \
+        __typeof__(b) _b = (b); \
+        _a < _b ? _a : _b; \
+    })
+
 typedef enum {
     K_ESC       = 0x1b,
     K_BACKSPACE = 0x7f,
@@ -101,11 +108,23 @@ void rl_clear_line() {
 }
 
 void rl_reprint_prompt() {
+    static size_t viewport_pos = 0;
+    size_t terminal_cols = 80;
     size_t len = strlen(lnbuf);
+    size_t viewport_size = terminal_cols - strlen(prompt) - 1;
+    size_t viewport_end;
 
     rl_clear_line();
-    printf("%s%s", prompt, lnbuf);
-    while (len-- > pos)
+
+    if (pos < viewport_pos) /* cursor before viewport */
+        viewport_pos = pos;
+    if (pos > viewport_pos + viewport_size) /* cursor after viewport */
+        viewport_pos = pos - viewport_size;
+
+    printf("%s%.*s", prompt, MIN(viewport_size, len), lnbuf + viewport_pos);
+
+    viewport_end = MIN(viewport_pos + viewport_size, len);
+    while (viewport_end-- != pos)
         putchar('\b'); /* backspace */
     fflush(stdout);
 }
@@ -183,8 +202,8 @@ void rl_feed(int c) {
         case K_BACKSPACE:
             if (pos > 0) {
                 memmove(lnbuf + pos - 1, lnbuf + pos, sizeof(lnbuf) - pos);
-                rl_reprint_prompt();
                 pos--;
+                rl_reprint_prompt();
             }
             break;
         case K_UP:
