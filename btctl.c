@@ -19,6 +19,7 @@
  *
  */
 
+#include <ctype.h>
 #include <err.h>
 #include <errno.h>
 #include <stdio.h>
@@ -89,6 +90,31 @@ typedef struct cmd {
     const char *description;
     void (*handler)(char *args);
 } cmd_t;
+
+typedef enum {
+    NORMAL_PSTATE,
+    SSP_CONSENT_PSTATE,
+} prompt_state_t;
+
+prompt_state_t prompt_state = NORMAL_PSTATE;
+bt_bdaddr_t r_bd_addr; /* remote address when pairing */
+
+void change_prompt_state(prompt_state_t new_state) {
+    static char prompt_line[64] = {0};
+    char addr_str[BT_ADDRESS_STR_LEN];
+
+    switch (new_state) {
+        case NORMAL_PSTATE:
+            strcpy(prompt_line, "> ");
+            break;
+        case SSP_CONSENT_PSTATE:
+            sprintf(prompt_line, "Pair with %s (Y/N)? ",
+                    ba2str(r_bd_addr.address, addr_str));
+            break;
+    }
+    rl_set_prompt(prompt_line);
+    prompt_state = new_state;
+}
 
 /* Clean blanks until a non-blank is found */
 static void line_skip_blanks(char **line) {
@@ -623,12 +649,38 @@ static void cmd_disconnect(char *args) {
     }
 }
 
-void ssp_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
-            uint32_t cod, bt_ssp_variant_t pairing_variant, uint32_t pass_key) {
-    char addr_str[BT_ADDRESS_STR_LEN];
+void do_ssp_reply(const bt_bdaddr_t *bd_addr, bt_ssp_variant_t variant,
+                  uint8_t accept, uint32_t passkey) {
+    bt_status_t status = u.btiface->ssp_reply(bd_addr, variant, accept,
+                                              passkey);
 
-    rl_printf("Remote addr: %s\n", ba2str(remote_bd_addr->address, addr_str));
-    rl_printf("Enter passkey on peer device: %d\n", pass_key);
+    if (status != BT_STATUS_SUCCESS) {
+        rl_printf("SSP Reply error: %u\n", status);
+        return;
+    }
+}
+
+void ssp_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
+                    uint32_t cod, bt_ssp_variant_t pairing_variant,
+                    uint32_t pass_key) {
+
+    if (pairing_variant == BT_SSP_VARIANT_CONSENT) {
+        /* we need to ask to user if he wants to bond */
+        memcpy(&r_bd_addr, remote_bd_addr, sizeof(r_bd_addr));
+        change_prompt_state(SSP_CONSENT_PSTATE);
+    } else {
+        char addr_str[BT_ADDRESS_STR_LEN];
+        const char *action = "Enter";
+
+        if (pairing_variant == BT_SSP_VARIANT_PASSKEY_CONFIRMATION) {
+            action = "Confirm";
+            do_ssp_reply(remote_bd_addr, pairing_variant, true, pass_key);
+        }
+
+        rl_printf("Remote addr: %s\n",
+                  ba2str(remote_bd_addr->address, addr_str));
+        rl_printf("%s passkey on peer device: %d\n", action, pass_key);
+    }
 }
 
 static void cmd_connect(char *args) {
@@ -681,6 +733,7 @@ static void bond_state_changed_cb(bt_status_t status, bt_bdaddr_t *bda,
     switch (state) {
         case BT_BOND_STATE_NONE:
             strcpy(state_str, "BT_BOND_STATE_NONE");
+            change_prompt_state(NORMAL_PSTATE); /* no bonding process running */
             break;
 
         case BT_BOND_STATE_BONDING:
@@ -954,7 +1007,19 @@ int main (int argc, char * argv[]) {
 
     while (!u.quit) {
         int c = getchar();
-        rl_feed(c);
+
+        /* if we are in consent bonding process, we need only a char */
+        if (prompt_state == SSP_CONSENT_PSTATE) {
+            c = toupper(c);
+            if (c == 'Y' || c == 'N') {
+                bt_status_t status;
+                printf("%c\n", c); /* user feedback */
+                do_ssp_reply(&r_bd_addr, BT_SSP_VARIANT_CONSENT,
+                             c == 'Y' ? true : false, 0);
+            }
+            change_prompt_state(NORMAL_PSTATE);
+        } else
+            rl_feed(c);
     }
 
     /* Disable adapter on exit */
