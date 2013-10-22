@@ -46,6 +46,7 @@ typedef enum {
     K_LEFT  = 0x103,
     K_END   = 0x104,
     K_HOME  = 0x105,
+    K_DELETE = 0x106,
 } keys_t;
 
 line_process_callback line_cb;
@@ -85,6 +86,10 @@ const char_sequence seqs[] = {
     {
         .sequence = {K_ESC, 'O', 'H'},
         .code = K_HOME
+    },
+    {
+        .sequence = {K_ESC, '[', '3', '~'},
+        .code = K_DELETE
     },
 };
 
@@ -228,6 +233,10 @@ void rl_feed(int c) {
             break;
         case K_HOME:
             pos = 0;
+            rl_reprint_prompt();
+            break;
+        case K_DELETE:
+            memmove(lnbuf + pos, lnbuf + pos + 1, sizeof(lnbuf) - pos - 1);
             rl_reprint_prompt();
             break;
         default:
