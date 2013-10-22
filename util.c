@@ -52,6 +52,49 @@ char *ba2str(const uint8_t *ba, char *str) {
     return str;
 }
 
+char *uuid2str(bt_uuid_t *uuid, char *str) {
+
+    /* format: 11223344-5566-7788-9900-112233445566 */
+    sprintf(str, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-"
+            "%02x%02x%02x%02x%02x%02x", uuid->uu[15], uuid->uu[14],
+            uuid->uu[13], uuid->uu[12], uuid->uu[11], uuid->uu[10], uuid->uu[9],
+            uuid->uu[8], uuid->uu[7], uuid->uu[6], uuid->uu[5], uuid->uu[4],
+            uuid->uu[3], uuid->uu[2], uuid->uu[1], uuid->uu[0]);
+    return str;
+}
+
+bool str2uuid(const char *str, bt_uuid_t *uuid) {
+    /* base UUID used to convert small ones */
+    bt_uuid_t _uuid = {.uu = {0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80,
+                              0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
+    int ret;
+
+    switch (strlen(str)) {
+        case 6: /* 16-bits */
+            ret = sscanf(str, "0x%02hhx%02hhx", &_uuid.uu[13], &_uuid.uu[12]);
+            if (ret != 2)
+                return false;
+            break;
+        case 36: /* 128-bits */
+            ret = sscanf(str, "%02hhx%02hhx%02hhx%02hhx-%02hhx%02hhx-"
+                         "%02hhx%02hhx-%02hhx%02hhx-"
+                         "%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx", &_uuid.uu[15],
+                         &_uuid.uu[14], &_uuid.uu[13], &_uuid.uu[12],
+                         &_uuid.uu[11], &_uuid.uu[10], &_uuid.uu[9],
+                         &_uuid.uu[8], &_uuid.uu[7], &_uuid.uu[6], &_uuid.uu[5],
+                         &_uuid.uu[4], &_uuid.uu[3], &_uuid.uu[2], &_uuid.uu[1],
+                         &_uuid.uu[0]);
+            if (ret != 16)
+                return false;
+            break;
+        default:
+            return false;
+    }
+
+    memcpy(uuid, &_uuid, sizeof(_uuid));
+    return true;
+}
+
 int str_in_list(const char* list[], const char *str) {
 
     unsigned i = 0;
