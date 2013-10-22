@@ -241,7 +241,10 @@ void rl_feed(int c) {
             break;
         default:
             if (isprint(c)) {
-                if (pos < MAX_LINE_BUFFER) {
+                if (pos < (sizeof(lnbuf) - 1)) {
+                    /* shift everything to right and insert char at pos */
+                    memmove(lnbuf + pos + 1, lnbuf + pos,
+                            sizeof(lnbuf) - pos - 1);
                     lnbuf[pos++] = c;
                     rl_reprint_prompt();
                 }
