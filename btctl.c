@@ -36,6 +36,7 @@
 #include "rl_helper.h"
 
 #define MAX_LINE_SIZE 64
+#define MAX_SVCS_SIZE 128
 
 /* AD types */
 #define AD_FLAGS              0x01
@@ -70,6 +71,16 @@ struct userdata {
     int client_if;
     bt_bdaddr_t remote_addr;
     int conn_id;
+
+    /* When searching for services, we receive at search_result_cb a pointer
+     * for btgatt_srvc_id_t. But its value is replaced each time. So one option
+     * is to store these values and show a simpler ID to user.
+     *
+     * This static list limits the number of services that we can store, but it
+     * is simpler than using linked list.
+     */
+    btgatt_srvc_id_t svcs[MAX_SVCS_SIZE];
+    int svcs_size;
 } u;
 
 /* Arbitrary UUID used to identify this application with the GATT library. The
@@ -119,6 +130,12 @@ void change_prompt_state(prompt_state_t new_state) {
     }
     rl_set_prompt(prompt_line);
     prompt_state = new_state;
+}
+
+/* clear any cache list of connected device */
+static void clear_list_cache() {
+
+    u.svcs_size = 0;
 }
 
 /* Clean blanks until a non-blank is found */
@@ -616,6 +633,8 @@ static void connect_cb(int conn_id, int status, int client_if,
                        bt_bdaddr_t *bda) {
     char addr_str[BT_ADDRESS_STR_LEN];
 
+    clear_list_cache();
+
     if (status != 0) {
         rl_printf("Failed to connect to device %s, status: %i\n",
                   ba2str(bda->address, addr_str), status);
@@ -838,6 +857,61 @@ static void cmd_pair(char *args) {
     }
 }
 
+/* called when search has finished */
+void search_complete_cb(int conn_id, int status) {
+
+    rl_printf("Search complete, status: %u\n", status);
+}
+
+/* called for each search result */
+void search_result_cb(int conn_id, btgatt_srvc_id_t *srvc_id) {
+    char uuid_str[UUID128_STR_LEN] = {0};
+
+    if (u.svcs_size < MAX_SVCS_SIZE) {
+        /* srvc_id value is replaced each time, so we need to copy it */
+        memcpy(&u.svcs[u.svcs_size], srvc_id, sizeof(btgatt_srvc_id_t));
+        u.svcs_size++;
+    }
+
+    rl_printf("ID:%i %s UUID: %s instance:%i\n", u.svcs_size - 1,
+              srvc_id->is_primary ? "Primary" : "Secondary",
+              uuid2str(&srvc_id->id.uuid, uuid_str), srvc_id->id.inst_id);
+}
+
+static void cmd_search_svc(char *args) {
+    char arg[MAX_LINE_SIZE];
+    bt_status_t status;
+
+    if (u.conn_id <= 0) {
+        rl_printf("Not connected\n");
+        return;
+    }
+
+    if (u.gattiface == NULL) {
+        rl_printf("Unable to BLE search-svc: GATT interface not avaiable\n");
+        return;
+    }
+
+    u.svcs_size = 0;
+
+    line_get_str(&args, arg);
+    if (strlen(arg) > 0) {
+            bt_uuid_t uuid;
+            if (!str2uuid(arg, &uuid)) {
+                rl_printf("Invalid format of UUID: %s\n", arg);
+                return;
+            }
+
+            status = u.gattiface->client->search_service(u.conn_id, &uuid);
+    } else
+            status = u.gattiface->client->search_service(u.conn_id, NULL);
+
+    if (status != BT_STATUS_SUCCESS) {
+        rl_printf("Failed to search services\n");
+        return;
+    }
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
@@ -848,6 +922,7 @@ static const cmd_t cmd_list[] = {
     { "connect", "     Create a connection to a remote device", cmd_connect },
     { "pair", "        Pair with remote device", cmd_pair },
     { "disconnect", "  Disconnect from remote device", cmd_disconnect },
+    { "search-svc", "  Search services on remote device", cmd_search_svc },
     { NULL, NULL, NULL }
 };
 
@@ -905,8 +980,8 @@ static const btgatt_client_callbacks_t gattccbs = {
     scan_result_cb, /* called every time an advertising report is seen */
     connect_cb, /* called every time a connection attempt finishes */
     disconnect_cb, /* called every time a connection attempt finishes */
-    NULL, /* search_complete_callback */
-    NULL, /* search_result_callback */
+    search_complete_cb, /* search_complete_callback */
+    search_result_cb, /* search_result_callback */
     NULL, /* get_characteristic_callback */
     NULL, /* get_descriptor_callback */
     NULL, /* get_included_service_callback */
