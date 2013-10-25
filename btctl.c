@@ -912,6 +912,72 @@ static void cmd_search_svc(char *args) {
     }
 }
 
+void get_included_service_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
+                             btgatt_srvc_id_t *incl_srvc_id) {
+
+    if (status == 0) {
+        bt_status_t ret;
+        char uuid_str[UUID128_STR_LEN] = {0};
+
+        rl_printf("Included UUID: %s\n",
+                  uuid2str(&incl_srvc_id->id.uuid, uuid_str));
+
+        /* this callback is called only one time, so to have next included
+         * service we need to call get_included_service again using incl_srvc_id
+         * as parameter
+         */
+        ret = u.gattiface->client->get_included_service(conn_id, srvc_id,
+                                                        incl_srvc_id);
+        if (ret != BT_STATUS_SUCCESS) {
+            rl_printf("Failed to list included services\n");
+            return;
+        }
+    } else
+        rl_printf("Included finished, status: %i\n", status);
+}
+
+static void cmd_included(char *args) {
+    char arg[MAX_LINE_SIZE];
+    bt_status_t status;
+    int id;
+
+    if (u.conn_id <= 0) {
+        rl_printf("Not connected\n");
+        return;
+    }
+
+    if (u.gattiface == NULL) {
+        rl_printf("Unable to BLE included: GATT interface not avaiable\n");
+        return;
+    }
+
+    if (u.svcs_size <= 0) {
+        rl_printf("Run search-svc first to get all services list\n");
+        return;
+    }
+
+    line_get_str(&args, arg);
+    if (strlen(arg) <= 0) {
+        rl_printf("Usage: included ID\n");
+        return;
+    }
+
+    id = atoi(arg);
+    if (id < 0 || id >= u.svcs_size) {
+        rl_printf("Invalid ID: %s need to be between 0 and %i\n", arg,
+                  u.svcs_size - 1);
+        return;
+    }
+
+    /* get first included service */
+    status = u.gattiface->client->get_included_service(u.conn_id, &u.svcs[id],
+                                                       NULL);
+    if (status != BT_STATUS_SUCCESS) {
+        rl_printf("Failed to list included services\n");
+        return;
+    }
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
@@ -923,6 +989,7 @@ static const cmd_t cmd_list[] = {
     { "pair", "        Pair with remote device", cmd_pair },
     { "disconnect", "  Disconnect from remote device", cmd_disconnect },
     { "search-svc", "  Search services on remote device", cmd_search_svc },
+    { "included", "    List included services of a service", cmd_included },
     { NULL, NULL, NULL }
 };
 
@@ -984,7 +1051,7 @@ static const btgatt_client_callbacks_t gattccbs = {
     search_result_cb, /* search_result_callback */
     NULL, /* get_characteristic_callback */
     NULL, /* get_descriptor_callback */
-    NULL, /* get_included_service_callback */
+    get_included_service_cb, /* get_included_service_callback */
     NULL, /* register_for_notification_callback */
     NULL, /* notify_callback */
     NULL, /* read_characteristic_callback */
