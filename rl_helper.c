@@ -37,6 +37,7 @@
     })
 
 typedef enum {
+    K_TAB       = 0x09,
     K_ESC       = 0x1b,
     K_BACKSPACE = 0x7f,
     /* user defined codes (used for escape sequences */
@@ -50,6 +51,7 @@ typedef enum {
 } keys_t;
 
 line_process_callback line_cb;
+static tab_completer_callback tab_completer_cb = NULL;
 char lnbuf[MAX_LINE_BUFFER]; /* buffer for our line editing */
 size_t pos = 0;
 char seq[MAX_SEQ]; /* sequence buffer (escape codes) */
@@ -152,6 +154,11 @@ void rl_set_prompt(const char *str) {
     rl_reprint_prompt();
 }
 
+void rl_set_tab_completer(tab_completer_callback cb) {
+
+    tab_completer_cb = cb;
+}
+
 void rl_quit() {
 
     rl_clear();
@@ -195,6 +202,19 @@ void rl_feed(int c) {
         return;
 
     switch (c) {
+        case K_TAB:
+            if (tab_completer_cb) {
+                const char *str = tab_completer_cb(lnbuf, pos);
+                if (str) {
+                    int len = strlen(str);
+                    memmove(lnbuf + pos + len, lnbuf + pos,
+                            sizeof(lnbuf) - pos - len);
+                    strncpy(lnbuf + pos, str, len);
+                    pos += len;
+                    rl_reprint_prompt();
+                }
+            }
+            break;
         case '\r':
         case '\n':
             putchar('\n');

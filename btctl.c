@@ -1161,8 +1161,25 @@ static void bt_init() {
         err(4, "Failed to initialize the Bluetooth interface");
 }
 
+/* simple tab completer */
+const char *tab_completer_cb(char *line, int pos) {
+    int i = 0;
+    const cmd_t *p = &(cmd_list[0]);
+
+    while (p->name) {
+        /* test only commands starting with it */
+        if (strncmp(p->name, line, pos) == 0)
+            return p->name + pos;
+
+        p = &cmd_list[++i];
+    }
+
+    return NULL;
+}
+
 int main (int argc, char * argv[]) {
     rl_init(cmd_process);
+    rl_set_tab_completer(tab_completer_cb);
 
     rl_printf("Android Bluetooth control tool version 0.1\n");
 
