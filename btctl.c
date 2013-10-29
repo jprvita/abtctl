@@ -57,6 +57,12 @@
 #define AD_ADV_INTERVAL       0x1a
 #define AD_MANUFACTURER_DATA  0xff
 
+typedef enum {
+    NORMAL_PSTATE,
+    SSP_CONSENT_PSTATE,
+    SSP_ENTRY_PSTATE
+} prompt_state_t;
+
 /* Data that have to be acessable by the callbacks */
 struct userdata {
     const bt_interface_t *btiface;
@@ -71,6 +77,9 @@ struct userdata {
     int client_if;
     bt_bdaddr_t remote_addr;
     int conn_id;
+
+    prompt_state_t prompt_state;
+    bt_bdaddr_t r_bd_addr; /* remote address when pairing */
 
     /* When searching for services, we receive at search_result_cb a pointer
      * for btgatt_srvc_id_t. But its value is replaced each time. So one option
@@ -102,14 +111,6 @@ typedef struct cmd {
     void (*handler)(char *args);
 } cmd_t;
 
-typedef enum {
-    NORMAL_PSTATE,
-    SSP_CONSENT_PSTATE,
-    SSP_ENTRY_PSTATE
-} prompt_state_t;
-
-prompt_state_t prompt_state = NORMAL_PSTATE;
-bt_bdaddr_t r_bd_addr; /* remote address when pairing */
 
 void change_prompt_state(prompt_state_t new_state) {
     static char prompt_line[64] = {0};
@@ -121,15 +122,15 @@ void change_prompt_state(prompt_state_t new_state) {
             break;
         case SSP_CONSENT_PSTATE:
             sprintf(prompt_line, "Pair with %s (Y/N)? ",
-                    ba2str(r_bd_addr.address, addr_str));
+                    ba2str(u.r_bd_addr.address, addr_str));
             break;
         case SSP_ENTRY_PSTATE:
             sprintf(prompt_line, "Entry PIN code of dev %s: ",
-                    ba2str(r_bd_addr.address, addr_str));
+                    ba2str(u.r_bd_addr.address, addr_str));
             break;
     }
     rl_set_prompt(prompt_line);
-    prompt_state = new_state;
+    u.prompt_state = new_state;
 }
 
 /* clear any cache list of connected device */
@@ -688,7 +689,7 @@ void pin_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
                     uint32_t cod) {
 
     /* ask user which PIN code is showed at remote device */
-    memcpy(&r_bd_addr, remote_bd_addr, sizeof(r_bd_addr));
+    memcpy(&u.r_bd_addr, remote_bd_addr, sizeof(u.r_bd_addr));
     change_prompt_state(SSP_ENTRY_PSTATE);
 }
 
@@ -698,7 +699,7 @@ void ssp_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
 
     if (pairing_variant == BT_SSP_VARIANT_CONSENT) {
         /* we need to ask to user if he wants to bond */
-        memcpy(&r_bd_addr, remote_bd_addr, sizeof(r_bd_addr));
+        memcpy(&u.r_bd_addr, remote_bd_addr, sizeof(u.r_bd_addr));
         change_prompt_state(SSP_CONSENT_PSTATE);
     } else {
         char addr_str[BT_ADDRESS_STR_LEN];
@@ -1001,8 +1002,8 @@ static void cmd_process(char *line) {
     if (line[0] == 0)
         return;
 
-    if (prompt_state == SSP_ENTRY_PSTATE) {
-        bt_status_t status = u.btiface->pin_reply(&r_bd_addr, true,
+    if (u.prompt_state == SSP_ENTRY_PSTATE) {
+        bt_status_t status = u.btiface->pin_reply(&u.r_bd_addr, true,
                                                   strlen(line),
                                                   (bt_pin_code_t *) line);
         change_prompt_state(NORMAL_PSTATE);
@@ -1179,6 +1180,7 @@ const char *tab_completer_cb(char *line, int pos) {
 
 int main (int argc, char * argv[]) {
     rl_init(cmd_process);
+    change_prompt_state(NORMAL_PSTATE);
     rl_set_tab_completer(tab_completer_cb);
 
     rl_printf("Android Bluetooth control tool version 0.1\n");
@@ -1189,12 +1191,12 @@ int main (int argc, char * argv[]) {
         int c = getchar();
 
         /* if we are in consent bonding process, we need only a char */
-        if (prompt_state == SSP_CONSENT_PSTATE) {
+        if (u.prompt_state == SSP_CONSENT_PSTATE) {
             c = toupper(c);
             if (c == 'Y' || c == 'N') {
                 bt_status_t status;
                 printf("%c\n", c); /* user feedback */
-                do_ssp_reply(&r_bd_addr, BT_SSP_VARIANT_CONSENT,
+                do_ssp_reply(&u.r_bd_addr, BT_SSP_VARIANT_CONSENT,
                              c == 'Y' ? true : false, 0);
             }
             change_prompt_state(NORMAL_PSTATE);
