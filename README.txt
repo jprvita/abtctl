@@ -32,3 +32,12 @@ a prompt were commands can be entered, and the 'help' command will print a list
 of all the available commands. Each command also have its own help, which can be
 accessed passing 'help' as the first argument of the command. For example, the
 help of the connect command is accessible through 'connect help'.
+
+Limitations of abtctl
+=====================
+
+On the btctl tool, we have some limits:
+* We accept only one connection per time. If you need another connection,
+  disconnect first.
+* We are using a static buffer for search_result_cb, so we have a limit of 128
+  services that can be handled.
