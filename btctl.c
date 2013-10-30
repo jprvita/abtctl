@@ -37,6 +37,7 @@
 
 #define MAX_LINE_SIZE 64
 #define MAX_SVCS_SIZE 128
+#define MAX_CHARS_SIZE 8
 
 /* AD types */
 #define AD_FLAGS              0x01
@@ -63,6 +64,17 @@ typedef enum {
     SSP_ENTRY_PSTATE
 } prompt_state_t;
 
+typedef struct char_info {
+    btgatt_char_id_t char_id;
+} char_info_t;
+
+typedef struct service_info {
+    btgatt_srvc_id_t svc_id;
+    char_info_t *chars_buf;
+    uint8_t chars_buf_size;
+    uint8_t char_count;
+} service_info_t;
+
 /* Data that have to be acessable by the callbacks */
 struct userdata {
     const bt_interface_t *btiface;
@@ -88,7 +100,7 @@ struct userdata {
      * This static list limits the number of services that we can store, but it
      * is simpler than using linked list.
      */
-    btgatt_srvc_id_t svcs[MAX_SVCS_SIZE];
+    service_info_t svcs[MAX_SVCS_SIZE];
     int svcs_size;
 } u;
 
@@ -135,8 +147,23 @@ void change_prompt_state(prompt_state_t new_state) {
 
 /* clear any cache list of connected device */
 static void clear_list_cache() {
+    uint8_t i;
 
+    for (i = 0; i < u.svcs_size; i++)
+        u.svcs[i].char_count = 0;
     u.svcs_size = 0;
+}
+
+static int find_svc(btgatt_srvc_id_t *svc) {
+    uint8_t i;
+
+    for (i = 0; i < u.svcs_size; i++)
+        if (u.svcs[i].svc_id.is_primary == svc->is_primary &&
+            u.svcs[i].svc_id.id.inst_id == svc->id.inst_id &&
+            !memcmp(&u.svcs[i].svc_id.id.uuid, &svc->id.uuid,
+                    sizeof(bt_uuid_t)))
+            return i;
+    return -1;
 }
 
 /* Clean blanks until a non-blank is found */
@@ -870,7 +897,7 @@ void search_result_cb(int conn_id, btgatt_srvc_id_t *srvc_id) {
 
     if (u.svcs_size < MAX_SVCS_SIZE) {
         /* srvc_id value is replaced each time, so we need to copy it */
-        memcpy(&u.svcs[u.svcs_size], srvc_id, sizeof(btgatt_srvc_id_t));
+        memcpy(&u.svcs[u.svcs_size].svc_id, srvc_id, sizeof(btgatt_srvc_id_t));
         u.svcs_size++;
     }
 
@@ -893,7 +920,7 @@ static void cmd_search_svc(char *args) {
         return;
     }
 
-    u.svcs_size = 0;
+    clear_list_cache();
 
     line_get_str(&args, arg);
     if (strlen(arg) > 0) {
@@ -971,7 +998,8 @@ static void cmd_included(char *args) {
     }
 
     /* get first included service */
-    status = u.gattiface->client->get_included_service(u.conn_id, &u.svcs[id],
+    status = u.gattiface->client->get_included_service(u.conn_id,
+                                                       &u.svcs[id].svc_id,
                                                        NULL);
     if (status != BT_STATUS_SUCCESS) {
         rl_printf("Failed to list included services\n");
@@ -983,6 +1011,7 @@ void get_characteristic_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
                            btgatt_char_id_t *char_id, int char_prop) {
     bt_status_t ret;
     char uuid_str[UUID128_STR_LEN] = {0};
+    int svc_id;
 
     if (status != 0) {
         rl_printf("List characteristics finished, status: %i %s\n", status,
@@ -990,8 +1019,28 @@ void get_characteristic_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
         return;
     }
 
-    rl_printf("UUID: %s instance:%i properties:0x%x\n",
-              uuid2str(&char_id->uuid, uuid_str), char_id->inst_id, char_prop);
+    svc_id = find_svc(srvc_id);
+
+    if (svc_id < 0) {
+        rl_printf("Received invalid characteristic (service inexistent)");
+        return;
+    }
+
+    rl_printf("ID:%i UUID: %s instance:%i properties:0x%x\n",
+              u.svcs[svc_id].char_count, uuid2str(&char_id->uuid, uuid_str),
+              char_id->inst_id, char_prop);
+
+    /* copy characteristic data */
+    memcpy(&u.svcs[svc_id].chars_buf[u.svcs[svc_id].char_count].char_id,
+           char_id, sizeof(btgatt_char_id_t));
+
+    if (u.svcs[svc_id].char_count == u.svcs[svc_id].chars_buf_size) {
+        u.svcs[svc_id].chars_buf_size += MAX_CHARS_SIZE;
+        u.svcs[svc_id].chars_buf = realloc(u.svcs[svc_id].chars_buf,
+                                           u.svcs[svc_id].chars_buf_size);
+    }
+    u.svcs[svc_id].char_count++;
+
 
     /* get next characteristic */
     ret = u.gattiface->client->get_characteristic(u.conn_id, srvc_id, char_id);
@@ -1033,9 +1082,16 @@ static void cmd_chars(char *args) {
         return;
     }
 
+    if (u.svcs[id].chars_buf == NULL) {
+        u.svcs[id].chars_buf_size = MAX_CHARS_SIZE;
+        u.svcs[id].chars_buf = malloc(sizeof(char_info_t) *
+                                      u.svcs[id].chars_buf_size);
+    } else if (u.svcs[id].char_count > 0)
+        u.svcs[id].char_count = 0;
+
     /* get first characteristic of service */
-    status = u.gattiface->client->get_characteristic(u.conn_id, &u.svcs[id],
-                                                     NULL);
+    status = u.gattiface->client->get_characteristic(u.conn_id,
+                                                     &u.svcs[id].svc_id, NULL);
     if (status != BT_STATUS_SUCCESS) {
         rl_printf("Failed to list characteristics\n");
         return;
