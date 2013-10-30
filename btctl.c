@@ -979,6 +979,69 @@ static void cmd_included(char *args) {
     }
 }
 
+void get_characteristic_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
+                           btgatt_char_id_t *char_id, int char_prop) {
+    bt_status_t ret;
+    char uuid_str[UUID128_STR_LEN] = {0};
+
+    if (status != 0) {
+        rl_printf("List characteristics finished, status: %i %s\n", status,
+                  atterror2str(status));
+        return;
+    }
+
+    rl_printf("UUID: %s instance:%i properties:0x%x\n",
+              uuid2str(&char_id->uuid, uuid_str), char_id->inst_id, char_prop);
+
+    /* get next characteristic */
+    ret = u.gattiface->client->get_characteristic(u.conn_id, srvc_id, char_id);
+    if (ret != BT_STATUS_SUCCESS) {
+        rl_printf("Failed to list characteristics\n");
+        return;
+    }
+}
+
+/* search all characteristics of specific service */
+static void cmd_chars(char *args) {
+    bt_status_t status;
+    int id;
+
+    if (u.conn_id <= 0) {
+        rl_printf("Not connected\n");
+        return;
+    }
+
+    if (u.gattiface == NULL) {
+        rl_printf("Unable to BLE characteristics: GATT interface not "
+                  "avaiable\n");
+        return;
+    }
+
+    if (u.svcs_size <= 0) {
+        rl_printf("Run search-svc first to get all services list\n");
+        return;
+    }
+
+    if (sscanf(args, " %i ", &id) != 1) {
+        rl_printf("Usage: characteristics serviceID\n");
+        return;
+    }
+
+    if (id < 0 || id >= u.svcs_size) {
+        rl_printf("Invalid serviceID: %i need to be between 0 and %i\n", id,
+                  u.svcs_size - 1);
+        return;
+    }
+
+    /* get first characteristic of service */
+    status = u.gattiface->client->get_characteristic(u.conn_id, &u.svcs[id],
+                                                     NULL);
+    if (status != BT_STATUS_SUCCESS) {
+        rl_printf("Failed to list characteristics\n");
+        return;
+    }
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
@@ -991,6 +1054,7 @@ static const cmd_t cmd_list[] = {
     { "disconnect", "  Disconnect from remote device", cmd_disconnect },
     { "search-svc", "  Search services on remote device", cmd_search_svc },
     { "included", "    List included services of a service", cmd_included },
+    { "characteristics", "List characteristics of a service", cmd_chars },
     { NULL, NULL, NULL }
 };
 
@@ -1050,7 +1114,7 @@ static const btgatt_client_callbacks_t gattccbs = {
     disconnect_cb, /* called every time a connection attempt finishes */
     search_complete_cb, /* search_complete_callback */
     search_result_cb, /* search_result_callback */
-    NULL, /* get_characteristic_callback */
+    get_characteristic_cb, /* get_characteristic_callback */
     NULL, /* get_descriptor_callback */
     get_included_service_cb, /* get_included_service_callback */
     NULL, /* register_for_notification_callback */
