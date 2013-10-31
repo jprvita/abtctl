@@ -1098,6 +1098,81 @@ static void cmd_chars(char *args) {
     }
 }
 
+void read_characteristic_cb(int conn_id, int status,
+                            btgatt_read_params_t *p_data) {
+    char uuid_str[UUID128_STR_LEN] = {0};
+    char value_hexstr[BTGATT_MAX_ATTR_LEN * 3 + 1] = {0};
+    int i;
+
+    if (status != 0) {
+        rl_printf("Read characteristic error, status:%i %s\n", status,
+                  atterror2str(status));
+        return;
+    }
+
+    for (i = 0; i < p_data->value.len; i++)
+        sprintf(&value_hexstr[i * 3], "%02hhx ", p_data->value.value[i]);
+
+    rl_printf("Read Characteristic\n");
+    rl_printf("  Service UUID:        %s\n", uuid2str(&p_data->srvc_id.id.uuid,
+              uuid_str));
+    rl_printf("  Characteristic UUID: %s\n", uuid2str(&p_data->char_id.uuid,
+              uuid_str));
+    rl_printf("  value_type:%i status:%i value(hex): %s\n", p_data->value_type,
+              p_data->status, value_hexstr);
+}
+
+static void cmd_read_char(char *args) {
+    bt_status_t status;
+    service_info_t *svc_info;
+    char_info_t *char_info;
+    int svc_id, char_id, auth;
+
+    if (u.conn_id <= 0) {
+        rl_printf("Not connected\n");
+        return;
+    }
+
+    if (u.gattiface == NULL) {
+        rl_printf("Unable to BLE read-char: GATT interface not avaiable\n");
+        return;
+    }
+
+    if (u.svcs_size <= 0) {
+        rl_printf("Run search-svc first to get all services list\n");
+        return;
+    }
+
+    if (sscanf(args, " %i %i %i ", &svc_id, &char_id, &auth) != 3) {
+        rl_printf("Usage: read-char serviceID characteristicID auth\n");
+        rl_printf("  auth - enable authentication (1) or not (0)\n");
+        return;
+    }
+
+    if (svc_id < 0 || svc_id >= u.svcs_size) {
+        rl_printf("Invalid serviceID: %i need to be between 0 and %i\n", svc_id,
+                  u.svcs_size - 1);
+        return;
+    }
+
+    svc_info = &u.svcs[svc_id];
+    if (char_id < 0 || char_id >= svc_info->char_count) {
+        rl_printf("Invalid characteristicID, try to run characteristics "
+                  "command.\n");
+        return;
+    }
+
+    char_info = &svc_info->chars_buf[char_id];
+    status = u.gattiface->client->read_characteristic(u.conn_id,
+                                                      &svc_info->svc_id,
+                                                      &char_info->char_id,
+                                                      auth);
+    if (status != BT_STATUS_SUCCESS) {
+        rl_printf("Failed to read characteristic\n");
+        return;
+    }
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
@@ -1111,6 +1186,7 @@ static const cmd_t cmd_list[] = {
     { "search-svc", "  Search services on remote device", cmd_search_svc },
     { "included", "    List included services of a service", cmd_included },
     { "characteristics", "List characteristics of a service", cmd_chars },
+    { "read-char", "   Read a characteristic of a service", cmd_read_char },
     { NULL, NULL, NULL }
 };
 
@@ -1175,7 +1251,7 @@ static const btgatt_client_callbacks_t gattccbs = {
     get_included_service_cb, /* get_included_service_callback */
     NULL, /* register_for_notification_callback */
     NULL, /* notify_callback */
-    NULL, /* read_characteristic_callback */
+    read_characteristic_cb, /* read_characteristic_callback */
     NULL, /* write_characteristic_callback */
     NULL, /* read_descriptor_callback */
     NULL, /* write_descriptor_callback */
