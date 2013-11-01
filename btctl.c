@@ -1200,8 +1200,8 @@ int main (int argc, char * argv[]) {
                              c == 'Y' ? true : false, 0);
             }
             change_prompt_state(NORMAL_PSTATE);
-        } else
-            rl_feed(c);
+        } else if (!rl_feed(c))
+            break; /* user pressed ctrl-d */
     }
 
     /* Disable adapter on exit */

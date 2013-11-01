@@ -21,7 +21,9 @@
 
 #include <ctype.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <termios.h>
 #include "rl_helper.h"
@@ -37,6 +39,7 @@
     })
 
 typedef enum {
+    K_EOT       = 0x04, /* end-of-transmission (ctrl-d) */
     K_TAB       = 0x09,
     K_ESC       = 0x1b,
     K_BACKSPACE = 0x7f,
@@ -196,12 +199,15 @@ int rl_parse_seq(int *c) {
     }
 }
 
-void rl_feed(int c) {
+bool rl_feed(int c) {
 
     if (rl_parse_seq(&c))
-        return;
+        return true;
 
     switch (c) {
+        case K_EOT:
+            putchar('\n');
+            return false;
         case K_TAB:
             if (tab_completer_cb) {
                 const char *str = tab_completer_cb(lnbuf, pos);
@@ -272,6 +278,8 @@ void rl_feed(int c) {
                 printf(" %x ", c);
             break;
     }
+
+    return true;
 }
 
 void rl_printf(const char *fmt, ...) {

@@ -13,8 +13,8 @@ void rl_set_prompt(const char *str);
 void rl_set_tab_completer(tab_completer_callback cb);
 /* close resources */
 void rl_quit();
-/* add char to line buffer */
-void rl_feed(int c);
+/* add char to line buffer, returns false on ctrl-d */
+bool rl_feed(int c);
 /* printf version */
 void rl_printf(const char *fmt, ...);
 
