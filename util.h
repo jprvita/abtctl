@@ -18,4 +18,7 @@ bool str2uuid(const char *str, bt_uuid_t *uuid);
 
 int str_in_list(const char* list[], const char *str);
 
+/* Converts ATT error to string */
+const char *atterror2str(int err);
+
 #endif /* __UTIL_H__ */

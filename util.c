@@ -111,3 +111,84 @@ int str_in_list(const char* list[], const char *str) {
 
     return -1;
 }
+
+const char *atterror2str(int err) {
+
+    switch (err) {
+        case 0x00:
+            return "Success";
+        case 0x01:
+            return "Invalid Handle";
+        case 0x02:
+            return "Read Not Permitted";
+        case 0x03:
+            return "Write Not Permitted";
+        case 0x04:
+            return "Invalid PDU";
+        case 0x05:
+            return "Insufficient Authentication";
+        case 0x06:
+            return "Request Not Supported";
+        case 0x07:
+            return "Invalid Offset";
+        case 0x08:
+            return "Insufficient Authorization";
+        case 0x09:
+            return "Prepare Queue Full";
+        case 0x0a:
+            return "Attribute Not Found";
+        case 0x0b:
+            return "Attribute Not Long";
+        case 0x0c:
+            return "Insufficient Encryption Key Size";
+        case 0x0d:
+            return "Invalid Attribute Value Length";
+        case 0x0e:
+            return "Unlikely Error";
+        case 0x0f:
+            return "Insufficient Encryption";
+        case 0x10:
+            return "Unsupported Group Type";
+        case 0x11:
+            return "Insufficient Resources";
+
+        /* Bluedroid defined errors */
+        /* They are defined in bluedroid source at stack/include/gatt_api.h */
+        case 0x80:
+            return "No Resources";
+        case 0x81:
+            return "Internal Error";
+        case 0x82:
+            return "Wrong State";
+        case 0x83:
+            return "DB Full";
+        case 0x84:
+            return "Busy";
+        case 0x85:
+            return "Error";
+        case 0x86:
+            return "Command Started";
+        case 0x87:
+            return "Illegal Parameter";
+        case 0x88:
+            return "Pending";
+        case 0x89:
+            return "Auth Fail";
+        case 0x8a:
+            return "More";
+        case 0x8b:
+            return "Invalid Config";
+        case 0x8c:
+            return "Service Started";
+        case 0x8d:
+            return "Encrypted No MITM";
+        case 0x8e:
+            return "Not Encrypted";
+
+        default:
+            if (err & 0x80)
+                return "Application Error";
+            else
+                return "Reserved";
+    }
+}
