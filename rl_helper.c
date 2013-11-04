@@ -60,6 +60,9 @@ size_t pos = 0;
 char seq[MAX_SEQ]; /* sequence buffer (escape codes) */
 size_t seq_pos = 0;
 const char *prompt = "> ";
+char **history = NULL; /* pointer to history buffer */
+int hs_len = 0; /* how much pointers we have in history buffer */
+int hs_cur = 0; /* current position of up/down keys navigation */
 
 typedef struct {
     char sequence[MAX_SEQ];
@@ -223,8 +226,20 @@ bool rl_feed(int c) {
             break;
         case '\r':
         case '\n':
-            putchar('\n');
-            line_cb(lnbuf);
+            if (strlen(lnbuf) > 0) {
+                char *dup = strdup(lnbuf);
+                /* alloc space in history buffer to new string pointer */
+                hs_len++;
+                history = realloc(history, hs_len * sizeof(history[0]));
+                history[hs_len - 1] = strdup(lnbuf);
+                putchar('\n');
+                line_cb(dup); /* send a copy, so we can change it */
+                free(dup);
+            } else
+                /* don't parse empty lines */
+                putchar('\n');
+
+            hs_cur = hs_len;
             rl_clear();
             rl_reprint_prompt();
             break;
@@ -238,8 +253,27 @@ bool rl_feed(int c) {
             }
             break;
         case K_UP:
+            if (hs_cur > 0) {
+                /* we have more history commands up */
+                hs_cur--;
+                strcpy(lnbuf, history[hs_cur]);
+                pos = strlen(history[hs_cur]);
+                rl_reprint_prompt();
+            }
+            break;
         case K_DOWN:
-            /* history handle */
+            if (hs_cur < hs_len - 1) {
+                /* we have more history commands down */
+                hs_cur++;
+                strcpy(lnbuf, history[hs_cur]);
+                pos = strlen(history[hs_cur]);
+                rl_reprint_prompt();
+            } else if (hs_cur == hs_len - 1) {
+                /* we don't have more commands down, let's clear the prompt */
+                hs_cur++;
+                rl_clear();
+                rl_reprint_prompt();
+            }
             break;
         case K_RIGHT:
             if (pos < strlen(lnbuf)) {
