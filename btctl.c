@@ -1037,6 +1037,7 @@ void get_characteristic_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
     if (u.svcs[svc_id].char_count == u.svcs[svc_id].chars_buf_size) {
         u.svcs[svc_id].chars_buf_size += MAX_CHARS_SIZE;
         u.svcs[svc_id].chars_buf = realloc(u.svcs[svc_id].chars_buf,
+                                           sizeof(char_info_t) *
                                            u.svcs[svc_id].chars_buf_size);
     }
     u.svcs[svc_id].char_count++;
