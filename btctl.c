@@ -1014,6 +1014,11 @@ void get_characteristic_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
     int svc_id;
 
     if (status != 0) {
+        if (status == 0x85) { /* it's not really an error, just finished */
+            rl_printf("List characteristics finished\n");
+            return;
+        }
+
         rl_printf("List characteristics finished, status: %i %s\n", status,
                   atterror2str(status));
         return;
@@ -1022,7 +1027,7 @@ void get_characteristic_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
     svc_id = find_svc(srvc_id);
 
     if (svc_id < 0) {
-        rl_printf("Received invalid characteristic (service inexistent)");
+        rl_printf("Received invalid characteristic (service inexistent)\n");
         return;
     }
 
