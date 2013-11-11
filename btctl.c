@@ -1037,15 +1037,16 @@ void get_characteristic_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
               svc_info->char_count, uuid2str(&char_id->uuid, uuid_str),
               char_id->inst_id, char_prop);
 
-    /* copy characteristic data */
-    memcpy(&svc_info->chars_buf[svc_info->char_count].char_id, char_id,
-           sizeof(btgatt_char_id_t));
-
     if (svc_info->char_count == svc_info->chars_buf_size) {
         svc_info->chars_buf_size += MAX_CHARS_SIZE;
         svc_info->chars_buf = realloc(svc_info->chars_buf, sizeof(char_info_t) *
                                       svc_info->chars_buf_size);
     }
+
+    /* copy characteristic data */
+    memcpy(&svc_info->chars_buf[svc_info->char_count].char_id, char_id,
+           sizeof(btgatt_char_id_t));
+
     svc_info->char_count++;
 
     /* get next characteristic */
