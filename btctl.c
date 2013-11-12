@@ -66,6 +66,8 @@ typedef enum {
 
 typedef struct char_info {
     btgatt_char_id_t char_id;
+    bt_uuid_t *descrs;
+    uint8_t descr_count;
 } char_info_t;
 
 typedef struct service_info {
@@ -163,6 +165,20 @@ static int find_svc(btgatt_srvc_id_t *svc) {
             !memcmp(&u.svcs[i].svc_id.id.uuid, &svc->id.uuid,
                     sizeof(bt_uuid_t)))
             return i;
+    return -1;
+}
+
+static int find_char(service_info_t *svc_info, btgatt_char_id_t *ch) {
+    uint8_t i;
+
+    for (i = 0; i < svc_info->char_count; i++) {
+        btgatt_char_id_t *char_id = &svc_info->chars_buf[i].char_id;
+
+        if (char_id->inst_id == ch->inst_id &&
+            !memcmp(&char_id->uuid, &ch->uuid, sizeof(bt_uuid_t)))
+            return i;
+    }
+
     return -1;
 }
 
@@ -1038,14 +1054,22 @@ void get_characteristic_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
               char_id->inst_id, char_prop);
 
     if (svc_info->char_count == svc_info->chars_buf_size) {
+        int i;
+
         svc_info->chars_buf_size += MAX_CHARS_SIZE;
         svc_info->chars_buf = realloc(svc_info->chars_buf, sizeof(char_info_t) *
                                       svc_info->chars_buf_size);
+
+        for (i = svc_info->char_count; i < svc_info->chars_buf_size; i++) {
+            svc_info->chars_buf[i].descrs = NULL;
+            svc_info->chars_buf[i].descr_count = 0;
+        }
     }
 
     /* copy characteristic data */
     memcpy(&svc_info->chars_buf[svc_info->char_count].char_id, char_id,
            sizeof(btgatt_char_id_t));
+    svc_info->chars_buf[svc_info->char_count].descr_count = 0;
 
     svc_info->char_count++;
 
@@ -1090,9 +1114,16 @@ static void cmd_chars(char *args) {
     }
 
     if (u.svcs[id].chars_buf == NULL) {
+        int i;
+
         u.svcs[id].chars_buf_size = MAX_CHARS_SIZE;
         u.svcs[id].chars_buf = malloc(sizeof(char_info_t) *
                                       u.svcs[id].chars_buf_size);
+
+        for (i = u.svcs[id].char_count; i < u.svcs[id].chars_buf_size; i++) {
+            u.svcs[id].chars_buf[i].descrs = NULL;
+            u.svcs[id].chars_buf[i].descr_count = 0;
+        }
     } else if (u.svcs[id].char_count > 0)
         u.svcs[id].char_count = 0;
 
@@ -1315,6 +1346,114 @@ static void cmd_write_cmd_char(char *args) {
     write_char(1, "write-cmd-char", args);
 }
 
+void get_descriptor_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
+                       btgatt_char_id_t *char_id, bt_uuid_t *descr_id) {
+    bt_status_t ret;
+    char uuid_str[UUID128_STR_LEN] = {0};
+    int svc_id, ch_id;
+    service_info_t *svc_info = NULL;
+    char_info_t *char_info = NULL;
+
+    if (status != 0) {
+        if (status == 0x85) { /* it's not really an error, just finished */
+            rl_printf("List characteristics descriptors finished\n");
+            return;
+        }
+
+        rl_printf("List characteristic descriptors finished, status: %i %s\n",
+                  status, atterror2str(status));
+        return;
+    }
+
+    svc_id = find_svc(srvc_id);
+    if (svc_id < 0) {
+        rl_printf("Received invalid descriptor (service inexistent)\n");
+        return;
+    }
+    svc_info = &u.svcs[svc_id];
+
+    ch_id = find_char(svc_info, char_id);
+    if (ch_id < 0) {
+        rl_printf("Received invalid descriptor (characteristic inexistent)\n");
+        return;
+    }
+    char_info = &svc_info->chars_buf[ch_id];
+
+    rl_printf("ID:%i UUID: %s\n", char_info->descr_count,
+              uuid2str(descr_id, uuid_str));
+
+    if (char_info->descr_count == 255) {
+        rl_printf("Max descriptors overflow error\n");
+        return;
+    }
+
+    char_info->descr_count++;
+    char_info->descrs = realloc(char_info->descrs, char_info->descr_count *
+                                sizeof(char_info->descrs[0]));
+
+    /* copy descriptor data */
+    memcpy(&char_info->descrs[char_info->descr_count - 1], descr_id,
+           sizeof(*descr_id));
+
+    /* get next descriptor */
+    ret = u.gattiface->client->get_descriptor(u.conn_id, srvc_id, char_id,
+                                              descr_id);
+    if (ret != BT_STATUS_SUCCESS) {
+        rl_printf("Failed to list descriptors\n");
+        return;
+    }
+}
+
+static void cmd_char_desc(char *args) {
+    bt_status_t status;
+    service_info_t *svc_info;
+    char_info_t *char_info;
+    int svc_id, char_id;
+
+    if (u.conn_id <= 0) {
+        rl_printf("Not connected\n");
+        return;
+    }
+
+    if (u.gattiface == NULL) {
+        rl_printf("Unable to BLE char-desc: GATT interface not avaiable\n");
+        return;
+    }
+
+    if (u.svcs_size <= 0) {
+        rl_printf("Run search-svc first to get all services list\n");
+        return;
+    }
+
+    if (sscanf(args, " %i %i ", &svc_id, &char_id) != 2) {
+        rl_printf("Usage: char-desc serviceID characteristicID\n");
+        return;
+    }
+
+    if (svc_id < 0 || svc_id >= u.svcs_size) {
+        rl_printf("Invalid serviceID: %i need to be between 0 and %i\n", svc_id,
+                  u.svcs_size - 1);
+        return;
+    }
+
+    svc_info = &u.svcs[svc_id];
+    if (char_id < 0 || char_id >= svc_info->char_count) {
+        rl_printf("Invalid characteristicID, try to run characteristics "
+                  "command.\n");
+        return;
+    }
+
+    char_info = &svc_info->chars_buf[char_id];
+    char_info->descr_count = 0;
+    /* get first descriptor */
+    status = u.gattiface->client->get_descriptor(u.conn_id, &svc_info->svc_id,
+                                                 &char_info->char_id, NULL);
+    if (status != BT_STATUS_SUCCESS) {
+        rl_printf("Failed to list characteristic descriptors\n");
+        return;
+    }
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
@@ -1333,6 +1472,7 @@ static const cmd_t cmd_list[] = {
                                                            cmd_write_req_char },
     { "write-cmd-char", "Write a characteristic (No response)",
                                                            cmd_write_cmd_char },
+    { "char-desc", "   List descriptors from a characteristic", cmd_char_desc },
     { NULL, NULL, NULL }
 };
 
@@ -1393,7 +1533,7 @@ static const btgatt_client_callbacks_t gattccbs = {
     search_complete_cb, /* search_complete_callback */
     search_result_cb, /* search_result_callback */
     get_characteristic_cb, /* get_characteristic_callback */
-    NULL, /* get_descriptor_callback */
+    get_descriptor_cb, /* get_descriptor_callback */
     get_included_service_cb, /* get_included_service_callback */
     NULL, /* register_for_notification_callback */
     NULL, /* notify_callback */
