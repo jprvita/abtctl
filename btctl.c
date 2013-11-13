@@ -1454,6 +1454,142 @@ static void cmd_char_desc(char *args) {
     }
 }
 
+void write_descriptor_cb(int conn_id, int status,
+                         btgatt_write_params_t *p_data) {
+    char uuid_str[UUID128_STR_LEN] = {0};
+
+    if (status != 0) {
+        rl_printf("Write descriptor error, status:%i %s\n", status,
+                  atterror2str(status));
+        return;
+    }
+
+    rl_printf("Write descriptor success\n");
+    rl_printf("  Service UUID:        %s\n", uuid2str(&p_data->srvc_id.id.uuid,
+              uuid_str));
+    rl_printf("  Characteristic UUID: %s\n", uuid2str(&p_data->char_id.uuid,
+              uuid_str));
+    rl_printf("  Descriptor UUID:     %s\n", uuid2str(&p_data->descr_id,
+              uuid_str));
+}
+
+static void cmd_write_desc(char *args) {
+    bt_status_t status;
+    service_info_t *svc_info;
+    char_info_t *char_info;
+    bt_uuid_t *descr_uuid;
+    char *saveptr = NULL, *tok;
+    int params = 0;
+    int svc_id, char_id, desc_id, auth;
+    char new_value[BTGATT_MAX_ATTR_LEN];
+    int new_value_len = 0;
+
+    if (u.conn_id <= 0) {
+        rl_printf("Not connected\n");
+        return;
+    }
+
+    if (u.gattiface == NULL) {
+        rl_printf("Unable to BLE write-desc: GATT interface not avaiable\n");
+        return;
+    }
+
+    if (u.svcs_size <= 0) {
+        rl_printf("Run search-svc first to get all services list\n");
+        return;
+    }
+
+    tok = strtok_r(args, " ", &saveptr);
+    while (tok != NULL) {
+        switch (params) {
+            case 0:
+                if (sscanf(tok, " %i ", &svc_id) != 1) {
+                    rl_printf("Invalid serviceID: %s\n", tok);
+                    return;
+                }
+                break;
+            case 1:
+                if (sscanf(tok, " %i ", &char_id) != 1) {
+                    rl_printf("Invalid characteristicID: %s\n", tok);
+                    return;
+                }
+                break;
+            case 2:
+                if (sscanf(tok, " %i ", &desc_id) != 1) {
+                    rl_printf("Invalid descriptorID: %s\n", tok);
+                    return;
+                }
+                break;
+            case 3:
+                if (sscanf(tok, " %i ", &auth) != 1) {
+                    rl_printf("Invalid auth: %s\n", tok);
+                    return;
+                }
+                break;
+            default: {
+                char *endptr = NULL;
+                unsigned long int v = strtoul(tok, &endptr, 16);
+
+                if (endptr[0] != '\0' || v > 0xff) {
+                    rl_printf("Invalid hex value: %s\n", tok);
+                    return;
+                }
+
+                if (new_value_len == sizeof(new_value)) {
+                    rl_printf("Too many bytes to write in value!\n");
+                    return;
+                }
+
+                new_value[new_value_len] = v;
+                new_value_len++;
+                break;
+            }
+        }
+        params++;
+        tok = strtok_r(NULL, " ", &saveptr);
+    }
+
+    if (params < 5) {
+        rl_printf("Usage: write-desc serviceID characteristicID descriptorID "
+                  "auth value\n");
+        rl_printf("  auth  - enable authentication (1) or not (0)\n");
+        rl_printf("  value - a sequence of hex values (eg: DE AD BE EF)\n");
+        return;
+    }
+
+    if (svc_id < 0 || svc_id >= u.svcs_size) {
+        rl_printf("Invalid serviceID: %i need to be between 0 and %i\n", svc_id,
+                  u.svcs_size - 1);
+        return;
+    }
+
+    svc_info = &u.svcs[svc_id];
+    if (char_id < 0 || char_id >= svc_info->char_count) {
+        rl_printf("Invalid characteristicID, try to run characteristics "
+                  "command.\n");
+        return;
+    }
+
+    char_info = &svc_info->chars_buf[char_id];
+    if (desc_id < 0 || desc_id >= char_info->descr_count) {
+        rl_printf("Invalid descriptorID, try to run char-desc command.\n");
+        return;
+    }
+    descr_uuid = &char_info->descrs[desc_id];
+
+    rl_printf("Writing %i bytes\n", new_value_len);
+    status = u.gattiface->client->write_descriptor(u.conn_id, &svc_info->svc_id,
+                                                   &char_info->char_id,
+                                                   descr_uuid,
+                                                   2 /* Write Request */,
+                                                   new_value_len, auth,
+                                                   new_value);
+    if (status != BT_STATUS_SUCCESS) {
+        rl_printf("Failed to write descriptor\n");
+        return;
+    }
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
@@ -1473,6 +1609,7 @@ static const cmd_t cmd_list[] = {
     { "write-cmd-char", "Write a characteristic (No response)",
                                                            cmd_write_cmd_char },
     { "char-desc", "   List descriptors from a characteristic", cmd_char_desc },
+    { "write-desc", "  Write on characteristic descriptor", cmd_write_desc },
     { NULL, NULL, NULL }
 };
 
@@ -1540,7 +1677,7 @@ static const btgatt_client_callbacks_t gattccbs = {
     read_characteristic_cb, /* read_characteristic_callback */
     write_characteristic_cb, /* write_characteristic_callback */
     NULL, /* read_descriptor_callback */
-    NULL, /* write_descriptor_callback */
+    write_descriptor_cb, /* write_descriptor_callback */
     NULL, /* execute_write_callback */
     NULL  /* read_remote_rssi_callback */
 };
