@@ -1762,6 +1762,56 @@ static void cmd_reg_notification(char *args) {
                   "notification/indication\n");
 }
 
+static void cmd_unreg_notification(char *args) {
+    bt_status_t status;
+    service_info_t *svc_info;
+    char_info_t *char_info;
+    int svc_id, char_id;
+
+    if (u.conn_id <= 0) {
+        rl_printf("Not connected\n");
+        return;
+    }
+
+    if (u.gattiface == NULL) {
+        rl_printf("Unable to unregister notification/indication: GATT interface"
+                  " not available\n");
+        return;
+    }
+
+    if (u.svcs_size <= 0) {
+        rl_printf("Run search-svc first to get all services list\n");
+        return;
+    }
+
+    if (sscanf(args, " %i %i ", &svc_id, &char_id) != 2) {
+        rl_printf("Usage: unreg-notif serviceID characteristicID\n");
+        return;
+    }
+
+    if (svc_id < 0 || svc_id >= u.svcs_size) {
+        rl_printf("Invalid serviceID: %i need to be between 0 and %i\n", svc_id,
+                  u.svcs_size - 1);
+        return;
+    }
+
+    svc_info = &u.svcs[svc_id];
+    if (char_id < 0 || char_id >= svc_info->char_count) {
+        rl_printf("Invalid characteristicID, try to run characteristics "
+                  "command\n");
+        return;
+    }
+
+    char_info = &svc_info->chars_buf[char_id];
+    status = u.gattiface->client->deregister_for_notification(u.client_if,
+                                                           &u.remote_addr,
+                                                           &svc_info->svc_id,
+                                                           &char_info->char_id);
+    if (status != BT_STATUS_SUCCESS)
+        rl_printf("Failed to unregister for characteristic "
+                  "notification/indication\n");
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
@@ -1785,6 +1835,8 @@ static const cmd_t cmd_list[] = {
     { "read-desc", "   Read a characteristic descriptor", cmd_read_desc },
     { "reg-notif", "   Register to receive characteristic "
                    "notification/indicaton", cmd_reg_notification },
+    { "unreg-notif", " Unregister a previous request to receive "
+                     "notification/indicaton", cmd_unreg_notification },
     { NULL, NULL, NULL }
 };
 
