@@ -1812,6 +1812,39 @@ static void cmd_unreg_notification(char *args) {
                   "notification/indication\n");
 }
 
+void read_remote_rssi_cb(int client_if, bt_bdaddr_t *bda, int rssi,
+                         int status) {
+    char addr_str[BT_ADDRESS_STR_LEN];
+
+    if (status != 0) {
+        rl_printf("Read RSSI error, status:%i %s\n", status,
+                  atterror2str(status));
+        return;
+    }
+
+    rl_printf("Address: %s RSSI: %i\n", ba2str(bda->address, addr_str), rssi);
+}
+
+static void cmd_rssi(char *args) {
+    bt_status_t status;
+
+    if (u.conn_id <= 0) {
+        rl_printf("Not connected\n");
+        return;
+    }
+
+    if (u.gattiface == NULL) {
+        rl_printf("Unable to BLE RSSI: GATT interface not avaiable\n");
+        return;
+    }
+
+    status = u.gattiface->client->read_remote_rssi(u.client_if, &u.remote_addr);
+    if (status != BT_STATUS_SUCCESS) {
+        rl_printf("Failed to request RSSI, status: %d\n", status);
+        return;
+    }
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
@@ -1837,6 +1870,7 @@ static const cmd_t cmd_list[] = {
                    "notification/indicaton", cmd_reg_notification },
     { "unreg-notif", " Unregister a previous request to receive "
                      "notification/indicaton", cmd_unreg_notification },
+    { "rssi", "        Request RSSI for connected device", cmd_rssi },
     { NULL, NULL, NULL }
 };
 
@@ -1906,7 +1940,7 @@ static const btgatt_client_callbacks_t gattccbs = {
     read_descriptor_cb, /* read_descriptor_callback */
     write_descriptor_cb, /* write_descriptor_callback */
     NULL, /* execute_write_callback */
-    NULL  /* read_remote_rssi_callback */
+    read_remote_rssi_cb, /* read_remote_rssi_callback */
 };
 
 /* GATT interface callbacks */
