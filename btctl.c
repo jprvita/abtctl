@@ -1676,6 +1676,92 @@ static void cmd_read_desc(char *args) {
     }
 }
 
+void register_for_notification_cb(int conn_id, int registered, int status,
+                                  btgatt_srvc_id_t *srvc_id,
+                                  btgatt_char_id_t *char_id) {
+    char uuid_str[UUID128_STR_LEN] = {0};
+
+    if (status != 0) {
+        rl_printf("Un/register for characteristic notification status: %i %s\n",
+                  status, atterror2str(status));
+        return;
+    }
+
+    rl_printf("Register for notification/indication: %s\n", registered ?
+               "registered" : "unregistered");
+    rl_printf("  Service UUID:        %s\n", uuid2str(&srvc_id->id.uuid,
+              uuid_str));
+    rl_printf("  Characteristic UUID: %s\n", uuid2str(&char_id->uuid,
+              uuid_str));
+}
+
+void notify_cb(int conn_id, btgatt_notify_params_t *p_data) {
+    char uuid_str[UUID128_STR_LEN] = {0};
+    char value_hexstr[BTGATT_MAX_ATTR_LEN * 3 + 1] = {0};
+    int i;
+
+    for (i = 0; i < p_data->len; i++)
+        sprintf(&value_hexstr[i * 3], "%02hhx ", p_data->value[i]);
+
+    rl_printf("Notify Characteristic\n");
+    rl_printf("  Service UUID:        %s\n", uuid2str(&p_data->srvc_id.id.uuid,
+              uuid_str));
+    rl_printf("  Characteristic UUID: %s\n", uuid2str(&p_data->char_id.uuid,
+              uuid_str));
+    rl_printf("  is_notify:%i value(hex): %s\n", p_data->is_notify,
+              value_hexstr);
+}
+
+static void cmd_reg_notification(char *args) {
+    bt_status_t status;
+    service_info_t *svc_info;
+    char_info_t *char_info;
+    int svc_id, char_id;
+
+    if (u.conn_id <= 0) {
+        rl_printf("Not connected\n");
+        return;
+    }
+
+    if (u.gattiface == NULL) {
+        rl_printf("Unable to register notification/indication: GATT interface "
+                  "not available\n");
+        return;
+    }
+
+    if (u.svcs_size <= 0) {
+        rl_printf("Run search-svc first to get all services list\n");
+        return;
+    }
+
+    if (sscanf(args, " %i %i ", &svc_id, &char_id) != 2) {
+        rl_printf("Usage: reg-notif serviceID characteristicID\n");
+        return;
+    }
+
+    if (svc_id < 0 || svc_id >= u.svcs_size) {
+        rl_printf("Invalid serviceID: %i need to be between 0 and %i\n", svc_id,
+                  u.svcs_size - 1);
+        return;
+    }
+
+    svc_info = &u.svcs[svc_id];
+    if (char_id < 0 || char_id >= svc_info->char_count) {
+        rl_printf("Invalid characteristicID, try to run characteristics "
+                  "command\n");
+        return;
+    }
+
+    char_info = &svc_info->chars_buf[char_id];
+    status = u.gattiface->client->register_for_notification(u.client_if,
+                                                           &u.remote_addr,
+                                                           &svc_info->svc_id,
+                                                           &char_info->char_id);
+    if (status != BT_STATUS_SUCCESS)
+        rl_printf("Failed to register for characteristic "
+                  "notification/indication\n");
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
@@ -1697,6 +1783,8 @@ static const cmd_t cmd_list[] = {
     { "char-desc", "   List descriptors from a characteristic", cmd_char_desc },
     { "write-desc", "  Write on characteristic descriptor", cmd_write_desc },
     { "read-desc", "   Read a characteristic descriptor", cmd_read_desc },
+    { "reg-notif", "   Register to receive characteristic "
+                   "notification/indicaton", cmd_reg_notification },
     { NULL, NULL, NULL }
 };
 
@@ -1759,8 +1847,8 @@ static const btgatt_client_callbacks_t gattccbs = {
     get_characteristic_cb, /* get_characteristic_callback */
     get_descriptor_cb, /* get_descriptor_callback */
     get_included_service_cb, /* get_included_service_callback */
-    NULL, /* register_for_notification_callback */
-    NULL, /* notify_callback */
+    register_for_notification_cb, /* register_for_notification_callback */
+    notify_cb, /* notify_callback */
     read_characteristic_cb, /* read_characteristic_callback */
     write_characteristic_cb, /* write_characteristic_callback */
     read_descriptor_cb, /* read_descriptor_callback */
