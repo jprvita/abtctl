@@ -35,6 +35,8 @@
 #include "util.h"
 #include "rl_helper.h"
 
+#define VERSION "0.2"
+
 #define MAX_LINE_SIZE 64
 #define MAX_SVCS_SIZE 128
 #define MAX_CHARS_SIZE 8
@@ -1887,7 +1889,7 @@ int main (int argc, char * argv[]) {
     change_prompt_state(NORMAL_PSTATE);
     rl_set_tab_completer(tab_completer_cb);
 
-    rl_printf("Android Bluetooth control tool version 0.1\n");
+    rl_printf("Android Bluetooth control tool version " VERSION "\n");
 
     bt_init();
 
