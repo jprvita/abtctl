@@ -1,3 +1,12 @@
+0.3
+===
+
+This version adds commands to:
+
+ * Discover descriptors
+ * Read and write descriptors value
+ * Enable, disable and handle indications and notifications
+
 0.2
 ===
 

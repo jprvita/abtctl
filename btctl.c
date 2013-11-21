@@ -35,7 +35,7 @@
 #include "util.h"
 #include "rl_helper.h"
 
-#define VERSION "0.2"
+#define VERSION "0.3"
 
 #define MAX_LINE_SIZE 64
 #define MAX_SVCS_SIZE 128
