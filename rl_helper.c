@@ -39,6 +39,7 @@
     })
 
 typedef enum {
+    K_ETX       = 0x03, /* end-of-text (ctrl-c) */
     K_EOT       = 0x04, /* end-of-transmission (ctrl-d) */
     K_TAB       = 0x09,
     K_ESC       = 0x1b,
@@ -155,7 +156,7 @@ void rl_init(line_process_callback cb) {
     tcgetattr(0, &saved_term_setts); /* read settings from stdin (0) */
     atexit(restore_tc_setts);
     settings = saved_term_setts;
-    settings.c_lflag &= ~(ICANON | ECHO); /* disable canonical and echo flags */
+    cfmakeraw(&settings); /* give us a raw control over terminal */
     tcsetattr(0, TCSANOW, &settings); /* store new settings */
 
     rl_clear();
@@ -216,6 +217,7 @@ bool rl_feed(int c) {
         return true;
 
     switch (c) {
+        case K_ETX:
         case K_EOT:
             putchar('\n');
             return false;
