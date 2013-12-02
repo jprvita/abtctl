@@ -2059,6 +2059,13 @@ const char *tab_completer_cb(char *line, int pos) {
 }
 
 int main(int argc, char *argv[]) {
+
+    /* check if I am root */
+    if (getuid() != 0) {
+        printf("This software requires root access\n");
+        return 1;
+    }
+
     rl_init(cmd_process);
     change_prompt_state(NORMAL_PSTATE);
     rl_set_tab_completer(tab_completer_cb);
