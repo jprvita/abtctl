@@ -53,6 +53,7 @@ typedef enum {
     K_DELETE = 0x106,
 } keys_t;
 
+struct termios saved_term_setts;
 line_process_callback line_cb;
 static tab_completer_callback tab_completer_cb = NULL;
 char lnbuf[MAX_LINE_BUFFER]; /* buffer for our line editing */
@@ -142,11 +143,18 @@ void rl_reprint_prompt() {
     fflush(stdout);
 }
 
+void restore_tc_setts() {
+
+    tcsetattr(0, TCSANOW, &saved_term_setts); /* restore settings */
+}
+
 void rl_init(line_process_callback cb) {
     struct termios settings;
 
     /* disable echo */
-    tcgetattr(0, &settings); /* read settings from stdin (0) */
+    tcgetattr(0, &saved_term_setts); /* read settings from stdin (0) */
+    atexit(restore_tc_setts);
+    settings = saved_term_setts;
     settings.c_lflag &= ~(ICANON | ECHO); /* disable canonical and echo flags */
     tcsetattr(0, TCSANOW, &settings); /* store new settings */
 
