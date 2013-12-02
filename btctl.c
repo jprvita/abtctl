@@ -2070,6 +2070,12 @@ int main(int argc, char *argv[]) {
     while (!u.quit) {
         int c = getchar();
 
+        if (c == EOF) {
+            rl_printf("error reading input, exiting...\n");
+            u.quit = true;
+            break;
+        }
+
         /* if we are in consent bonding process, we need only a char */
         if (u.prompt_state == SSP_CONSENT_PSTATE) {
             c = toupper(c);
