@@ -42,23 +42,41 @@
  */
 
 /**
+ * Type that represents a callback function to inform that BLE is enabled and
+ * available to be used.
+ */
+typedef void (*ble_enable_cb_t)(void);
+
+/**
+ * Type that represents a callback function to inform an adapter state change.
+ *
+ * @param state The new state of the adapter: 0 disabled, 1 enabled.
+ */
+typedef void (*ble_adapter_state_cb_t)(uint8_t state);
+
+/**
  * List of callbacks for BLE operations.
  */
 typedef struct ble_cbs {
+    ble_enable_cb_t enable_cb;
+    ble_adapter_state_cb_t adapter_state_cb;
 } ble_cbs_t;
 
 /**
- * Initialize the stack and necessary interfaces.
+ * Initialize the BLE stack and necessary interfaces and power on the adapter.
  *
  * @param cbs List of callbacks for BLE operations.
  *
  * @return 0 on success.
  * @return Negative value on failure.
  */
-int ble_init(ble_cbs_t cbs);
+int ble_enable(ble_cbs_t cbs);
 
 /**
- * Shutdown the stack and do the necessary cleanups.
+ * Power off the adapter, cleanup the BLE features and shutdown the stack.
+ *
+ * @return 0 on success.
+ * @return Negative value on failure.
  */
-void ble_shutdown();
+int ble_disable();
 #endif
