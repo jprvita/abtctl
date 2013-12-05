@@ -1,0 +1,12 @@
+LOCAL_PATH:= $(call my-dir)
+
+include $(CLEAR_VARS)
+
+LOCAL_COPY_HEADERS := ble.h
+LOCAL_COPY_HEADERS_TO := libble
+LOCAL_SRC_FILES := ble.c
+LOCAL_SHARED_LIBRARIES := libhardware
+LOCAL_MODULE_TAGS := eng
+LOCAL_MODULE := libble
+
+include $(BUILD_SHARED_LIBRARY)
