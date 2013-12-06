@@ -69,12 +69,29 @@ typedef void (*ble_scan_cb_t)(const uint8_t *address, int rssi,
                               const uint8_t *adv_data);
 
 /**
+ * Type that represents a callback function to notify of a new connection with
+ * a BLE device or a disconnection from a device.
+ *
+ * @param address A pointer to a 6 element array representing each part of the
+ *                Bluetooth address of the remote device, where the
+ *                most-significant byte is on position 0 and the
+ *                least-sifnificant byte is on position 5.
+ * @param conn_id An identifier of the connected remote device. If this is
+ *                nonpositive it means the device is not connected.
+ * @param status The status in which the connect operation has finished.
+ */
+typedef void (*ble_connect_cb_t)(const uint8_t *address, int conn_id,
+                                 int status);
+
+/**
  * List of callbacks for BLE operations.
  */
 typedef struct ble_cbs {
     ble_enable_cb_t enable_cb;
     ble_adapter_state_cb_t adapter_state_cb;
     ble_scan_cb_t scan_cb;
+    ble_connect_cb_t connect_cb;
+    ble_connect_cb_t disconnect_cb;
 } ble_cbs_t;
 
 /**
@@ -114,4 +131,30 @@ int ble_start_scan();
  * @return -1 if failed to request scan stop.
  */
 int ble_stop_scan();
+
+/**
+ * Connects to a BLE device.
+ *
+ * @param address A pointer to a 6 element array representing each part of the
+ *                Bluetooth address of the remote device a connection should be
+ *                requested, where the most-significant byte is on position 0
+ *                and the least-sifnificant byte is on position 5.
+ *
+ * @return 0 if connection has been successfully requested.
+ * @return -1 if failed to request connection.
+ */
+int ble_connect(const uint8_t *address);
+
+/**
+ * Disconnects from a BLE device.
+ *
+ * @param address A pointer to a 6 element array representing each part of the
+ *                Bluetooth address of the remote device a disconnection should
+ *                be requested, where the most-significant byte is on position
+ *                0 and the least-sifnificant byte is on position 5.
+ *
+ * @return 0 if disconnection has been successfully requested.
+ * @return -1 if failed to request disconnection.
+ */
+int ble_disconnect(const uint8_t *address);
 #endif

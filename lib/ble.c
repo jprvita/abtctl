@@ -31,6 +31,15 @@
 
 #include "ble.h"
 
+/* Internal representation of a BLE device */
+typedef struct ble_device ble_device_t;
+struct ble_device {
+    bt_bdaddr_t bda;
+    int conn_id;
+
+    ble_device_t *next;
+};
+
 /* Data that have to be acessable by the callbacks */
 static struct libdata {
     ble_cbs_t cbs;
@@ -42,6 +51,7 @@ static struct libdata {
 
     uint8_t adapter_state;
     uint8_t scan_state;
+    ble_device_t *devices;
 } data;
 
 /* Called every time an advertising report is seen */
@@ -82,6 +92,110 @@ int ble_stop_scan() {
     return ble_scan(0);
 }
 
+static ble_device_t *find_device_by_address(const uint8_t *address) {
+    ble_device_t *dev;
+
+    for (dev = data.devices; dev ; dev = dev->next)
+        if (!memcmp(dev->bda.address, address, sizeof(dev->bda.address)))
+            break;
+
+    return dev;
+}
+
+/* Called every time a device gets connected */
+static void connect_cb(int conn_id, int status, int client_if,
+                       bt_bdaddr_t *bda) {
+    ble_device_t *dev;
+
+    dev = find_device_by_address(bda->address);
+    if (!dev)
+        return;
+
+    dev->conn_id = conn_id;
+
+    if (data.cbs.connect_cb)
+        data.cbs.connect_cb(bda->address, conn_id, status);
+}
+
+int ble_connect(const uint8_t *address) {
+    ble_device_t *dev;
+    bt_status_t s;
+
+    if (!data.client)
+        return -1;
+
+    if (!data.gattiface)
+        return -1;
+
+    if (!data.adapter_state)
+        return -1;
+
+    dev = find_device_by_address(address);
+    if (!dev) {
+        int i;
+
+        dev = calloc(1, sizeof(ble_device_t));
+        if (!dev)
+            return -1;
+
+        /* TODO: memcpy() */
+        for (i = 0; i < 6; i++)
+            dev->bda.address[i] = address[i];
+
+        dev->next = data.devices;
+        data.devices = dev;
+    }
+
+    s = data.gattiface->client->connect(data.client, &dev->bda, true);
+    if (s != BT_STATUS_SUCCESS)
+        return -s;
+
+    return 0;
+}
+
+/* Called every time a device gets disconnected */
+static void disconnect_cb(int conn_id, int status, int client_if,
+                          bt_bdaddr_t *bda) {
+    ble_device_t *dev;
+
+    dev = find_device_by_address(bda->address);
+    if (!dev)
+        return;
+
+    dev->conn_id = 0;
+
+    if (data.cbs.disconnect_cb)
+        data.cbs.disconnect_cb(bda->address, conn_id, status);
+}
+
+int ble_disconnect(const uint8_t *address) {
+    ble_device_t *dev;
+    bt_status_t s;
+
+    if (!data.client)
+        return -1;
+
+    if (!data.gattiface)
+        return -1;
+
+    if (!data.adapter_state)
+        return -1;
+
+    if (!address)
+        return -1;
+
+    dev = find_device_by_address(address);
+    if (!dev)
+        return -1;
+
+    s = data.gattiface->client->disconnect(data.client, &dev->bda,
+                                           dev->conn_id);
+    if (s != BT_STATUS_SUCCESS)
+        return -s;
+
+    return 0;
+}
+
 /* Called when the client registration is finished */
 static void register_client_cb(int status, int client_if, bt_uuid_t *app_uuid) {
     if (status == BT_STATUS_SUCCESS) {
@@ -96,8 +210,8 @@ static void register_client_cb(int status, int client_if, bt_uuid_t *app_uuid) {
 static const btgatt_client_callbacks_t gattccbs = {
     register_client_cb,
     scan_result_cb,
-    NULL, /* connect_cb */
-    NULL, /* disconnect_cb */
+    connect_cb,
+    disconnect_cb,
     NULL, /* search_complete_cb */
     NULL, /* search_result_cb */
     NULL, /* get_characteristic_cb */
@@ -215,6 +329,17 @@ int ble_enable(ble_cbs_t cbs) {
     data.cbs = cbs;
 
     return 0;
+}
+
+static void remove_all_devices() {
+    ble_device_t *dev, *next;
+
+    dev = data.devices;
+    while (dev) {
+        next = dev->next;
+        free(dev);
+        dev = next;
+    }
 }
 
 int ble_disable() {
