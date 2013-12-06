@@ -55,11 +55,26 @@ typedef void (*ble_enable_cb_t)(void);
 typedef void (*ble_adapter_state_cb_t)(uint8_t state);
 
 /**
+ * Type that represents a callback function to notify of a new found device
+ * during a scanning session.
+ *
+ * @param address A pointer to a 6 element array representing each part of the
+ *                Bluetooth address of the found device, where the
+ *                most-significant byte is on position 0 and the
+ *                least-sifnificant byte is on position 5.
+ * @param rssi The RSSI of the found device.
+ * @param adv_data A pointer to the advertising data of the found device.
+ */
+typedef void (*ble_scan_cb_t)(const uint8_t *address, int rssi,
+                              const uint8_t *adv_data);
+
+/**
  * List of callbacks for BLE operations.
  */
 typedef struct ble_cbs {
     ble_enable_cb_t enable_cb;
     ble_adapter_state_cb_t adapter_state_cb;
+    ble_scan_cb_t scan_cb;
 } ble_cbs_t;
 
 /**
@@ -79,4 +94,24 @@ int ble_enable(ble_cbs_t cbs);
  * @return Negative value on failure.
  */
 int ble_disable();
+
+/**
+ * Starts a LE scan procedure on the adapter.
+ *
+ * Scan will run indefinitelly until ble_scan_stop() is called.
+ *
+ * @return 0 if scan has been started.
+ * @return 1 if adapter is already scanning.
+ * @return -1 if failed to request scan start.
+ */
+int ble_start_scan();
+
+/**
+ * Stops a running LE scan procedure on the adapter.
+ *
+ * @return 0 if scan has been stopped.
+ * @return 1 if adapter is not scanning.
+ * @return -1 if failed to request scan stop.
+ */
+int ble_stop_scan();
 #endif

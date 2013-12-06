@@ -41,7 +41,46 @@ static struct libdata {
     int client;
 
     uint8_t adapter_state;
+    uint8_t scan_state;
 } data;
+
+/* Called every time an advertising report is seen */
+static void scan_result_cb(bt_bdaddr_t *bda, int rssi, uint8_t *adv_data) {
+    if (data.cbs.scan_cb)
+        data.cbs.scan_cb(bda->address, rssi, adv_data);
+}
+
+static int ble_scan(uint8_t start) {
+    bt_status_t s;
+
+    if (!data.client)
+        return -1;
+
+    if (data.gattiface == NULL)
+        return -1;
+
+    if (!data.adapter_state)
+        return -1;
+
+    if (data.scan_state == start)
+        return 1;
+
+    s = data.gattiface->client->scan(data.client, start);
+    if (s != BT_STATUS_SUCCESS)
+        return -s;
+
+    data.scan_state = start;
+
+    return 0;
+}
+
+int ble_start_scan() {
+    return ble_scan(1);
+}
+
+int ble_stop_scan() {
+    return ble_scan(0);
+}
 
 /* Called when the client registration is finished */
 static void register_client_cb(int status, int client_if, bt_uuid_t *app_uuid) {
@@ -56,7 +95,7 @@ static void register_client_cb(int status, int client_if, bt_uuid_t *app_uuid) {
 /* GATT client interface callbacks */
 static const btgatt_client_callbacks_t gattccbs = {
     register_client_cb,
-    NULL, /* scan_result_cb */
+    scan_result_cb,
     NULL, /* connect_cb */
     NULL, /* disconnect_cb */
     NULL, /* search_complete_cb */
