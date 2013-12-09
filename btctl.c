@@ -40,6 +40,9 @@
 #define MAX_LINE_SIZE 64
 #define MAX_SVCS_SIZE 128
 #define MAX_CHARS_SIZE 8
+#define MAX_CONNECTIONS 10
+#define PENDING_CONN_ID  0
+#define INVALID_CONN_ID -1
 
 /* AD types */
 #define AD_FLAGS              0x01
@@ -79,6 +82,21 @@ typedef struct service_info {
     uint8_t char_count;
 } service_info_t;
 
+typedef struct connection {
+    bt_bdaddr_t remote_addr;
+    int conn_id;
+
+    /* When searching for services, we receive at search_result_cb a pointer
+     * for btgatt_srvc_id_t. But its value is replaced each time. So one option
+     * is to store these values and show a simpler ID to user.
+     *
+     * This static list limits the number of services that we can store, but it
+     * is simpler than using linked list.
+     */
+    service_info_t svcs[MAX_SVCS_SIZE];
+    int svcs_size;
+} connection_t;
+
 /* Data that have to be acessable by the callbacks */
 struct userdata {
     const bt_interface_t *btiface;
@@ -106,6 +124,8 @@ struct userdata {
      */
     service_info_t svcs[MAX_SVCS_SIZE];
     int svcs_size;
+
+    connection_t conns[MAX_CONNECTIONS];
 } u;
 
 /* Arbitrary UUID used to identify this application with the GATT library. The
@@ -147,6 +167,20 @@ void change_prompt_state(prompt_state_t new_state) {
     }
     rl_set_prompt(prompt_line);
     u.prompt_state = new_state;
+}
+
+static connection_t *get_connection(int conn_id)
+{
+    int i;
+
+    if (conn_id <= INVALID_CONN_ID)
+        return NULL;
+
+    for (i = 0; i < MAX_CONNECTIONS; i++)
+        if (u.conns[i].conn_id == conn_id)
+            return &u.conns[i];
+
+    return NULL;
 }
 
 /* clear any cache list of connected device */
@@ -2005,7 +2039,7 @@ static bt_callbacks_t btcbs = {
 
 /* Initialize the Bluetooth stack */
 static void bt_init() {
-    int status;
+    int status, i;
     hw_module_t *module;
     hw_device_t *hwdev;
     bluetooth_device_t *btdev;
@@ -2014,6 +2048,9 @@ static void bt_init() {
     u.quit = 0;
     u.adapter_state = BT_STATE_OFF; /* The adapter is OFF in the beginning */
     u.conn_id = 0;
+
+    for (i = 0; i < MAX_CONNECTIONS; i++)
+        u.conns[i].conn_id = INVALID_CONN_ID;
 
     /* Get the Bluetooth module from libhardware */
     status = hw_get_module(BT_STACK_MODULE_ID, (hw_module_t const**) &module);
