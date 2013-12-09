@@ -236,6 +236,12 @@ static void cmd_enable(char *args) {
         return;
     }
 
+    if (u.gattiface == NULL) {
+        rl_printf("Unable to enable Bluetooth Adapter: GATT interface not "
+                  "available\n");
+        return;
+    }
+
     status = u.btiface->enable();
     if (status != BT_STATUS_SUCCESS)
         rl_printf("Failed to enable Bluetooth\n");
