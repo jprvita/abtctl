@@ -213,12 +213,12 @@ static void adapter_state_change_cb(bt_state_t state) {
     u.adapter_state = state;
     rl_printf("\nAdapter state changed: %i\n", state);
 
-    if (state ==  BT_STATE_ON) {
+    if (state == BT_STATE_ON) {
        /* Register as a GATT client with the stack
         *
-	* This has to be done here because it is the first available point we're
-	* sure the GATT interface is initialized and ready to be used, since
-	* there is callback for gattiface->init().
+        * This has to be done here because it is the first available point we're
+        * sure the GATT interface is initialized and ready to be used, since
+        * there is callback for gattiface->init().
         */
         bt_status_t status = u.gattiface->client->register_client(&app_uuid);
         if (status != BT_STATUS_SUCCESS)
