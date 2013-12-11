@@ -41,6 +41,13 @@
  * Android GUI (if running).
  */
 
+/** BLE device bond state. */
+typedef enum {
+    BLE_BOND_NONE,     /**< There is no bond with the remote device. */
+    BLE_BOND_BONDING,  /**< Pairing with the remote device is ongoing. */
+    BLE_BOND_BONDED    /**< The remote device is bonded. */
+} ble_bond_state_t;
+
 /**
  * Type that represents a callback function to inform that BLE is enabled and
  * available to be used.
@@ -84,6 +91,21 @@ typedef void (*ble_connect_cb_t)(const uint8_t *address, int conn_id,
                                  int status);
 
 /**
+ * Type that represents a callback function to notify when the bond state with a
+ * BLE device changes.
+ *
+ * @param address A pointer to a 6 element array representing each part of the
+ *                Bluetooth address of the remote device, where the
+ *                most-significant byte is on position 0 and the
+ *                least-sifnificant byte is on position 5.
+ * @param state The new bonding state.
+ * @param status The status in which the pair or remove bond operation has
+ *               finished.
+ */
+typedef void (*ble_bond_state_cb_t)(const uint8_t *address,
+                                    ble_bond_state_t state, int status);
+
+/**
  * List of callbacks for BLE operations.
  */
 typedef struct ble_cbs {
@@ -92,6 +114,7 @@ typedef struct ble_cbs {
     ble_scan_cb_t scan_cb;
     ble_connect_cb_t connect_cb;
     ble_connect_cb_t disconnect_cb;
+    ble_bond_state_cb_t bond_state_cb;
 } ble_cbs_t;
 
 /**
@@ -157,4 +180,43 @@ int ble_connect(const uint8_t *address);
  * @return -1 if failed to request disconnection.
  */
 int ble_disconnect(const uint8_t *address);
+
+/**
+ * Pairs with a BLE device.
+ *
+ * @param address A pointer to a 6 element array representing each part of the
+ *                Bluetooth address of the remote device a pairing should be
+ *                requested, where the most-significant byte is on position 0
+ *                and the least-sifnificant byte is on position 5. *
+ *
+ * @return 0 if pairing has been successfully requested.
+ * @return -1 if failed to pair.
+ */
+int ble_pair(const uint8_t *address);
+
+/**
+ * Cancel pairing with a BLE device.
+ *
+ * @param address A pointer to a 6 element array representing each part of the
+ *                Bluetooth address of the remote device which the bonding
+ *                should be removed, where the most-significant byte is on
+ *                position 0 and the least-sifnificant byte is on position 5.
+ *
+ * @return 0 if pairing has been successfully cancelled.
+ * @return -1 if failed to cancel pairing.
+ */
+int ble_cancel_pairing(const uint8_t *address);
+
+/**
+ * Remove bond with a BLE device.
+ *
+ * @param address A pointer to a 6 element array representing each part of the
+ *                Bluetooth address of the remote device which the bonding
+ *                should be removed, where the most-significant byte is on
+ *                position 0 and the least-sifnificant byte is on position 5.
+ *
+ * @return 0 if bond has been successfully removed.
+ * @return -1 if failed to remove bond.
+ */
+int ble_remove_bond(const uint8_t *address);
 #endif

@@ -196,6 +196,87 @@ int ble_disconnect(const uint8_t *address) {
     return 0;
 }
 
+/* Called every time the bond state with a device changes */
+static void bond_state_changed_cb(bt_status_t status, bt_bdaddr_t *bda,
+                                  bt_bond_state_t state) {
+    ble_bond_state_t s;
+    ble_device_t *dev;
+
+    switch (state) {
+        case BT_BOND_STATE_NONE:
+            s = BLE_BOND_NONE;
+            break;
+        case BT_BOND_STATE_BONDING:
+            s = BLE_BOND_BONDING;
+            break;
+        case BT_BOND_STATE_BONDED:
+            s = BLE_BOND_BONDED;
+            break;
+        default:
+            return;
+    }
+
+    dev = find_device_by_address(bda->address);
+    if (dev && data.cbs.bond_state_cb)
+        data.cbs.bond_state_cb(bda->address, s, status);
+}
+
+static int ble_pair_internal(const uint8_t *address, uint8_t operation) {
+    ble_device_t *dev;
+    bt_status_t s = BT_STATUS_UNSUPPORTED;
+
+    if (!data.btiface)
+        return -1;
+
+    if (!data.adapter_state)
+        return -1;
+
+    dev = find_device_by_address(address);
+    if (!dev) {
+        int i;
+
+        dev = calloc(1, sizeof(ble_device_t));
+        if (!dev)
+            return -1;
+
+        /* TODO: memcpy() */
+        for (i = 0; i < 6; i++)
+            dev->bda.address[i] = address[i];
+
+        dev->next = data.devices;
+        data.devices = dev;
+    }
+
+    switch (operation) {
+        case 0: /* Pair */
+            s = data.btiface->create_bond(&dev->bda);
+            break;
+        case 1: /* Cancel pairing */
+            s = data.btiface->cancel_bond(&dev->bda);
+            break;
+        case 2: /* Remove bond */
+            s = data.btiface->remove_bond(&dev->bda);
+            break;
+    }
+
+    if (s != BT_STATUS_SUCCESS)
+        return -s;
+
+    return 0;
+}
+
+int ble_pair(const uint8_t *address) {
+    return ble_pair_internal(address, 0);
+}
+
+int ble_cancel_pairing(const uint8_t *address) {
+    return ble_pair_internal(address, 1);
+}
+
+int ble_remove_bond(const uint8_t *address) {
+    return ble_pair_internal(address, 2);
+}
+
 /* Called when the client registration is finished */
 static void register_client_cb(int status, int client_if, bt_uuid_t *app_uuid) {
     if (status == BT_STATUS_SUCCESS) {
@@ -288,7 +369,7 @@ static bt_callbacks_t btcbs = {
     NULL, /* discovery_state_changed_cb */
     NULL, /* pin_request_cb */
     NULL, /* ssp_request_cb */
-    NULL, /* bond_state_changed_cb */
+    bond_state_changed_cb,
     NULL, /* acl_state_changed_callback */
     thread_event_cb,
     NULL, /* dut_mode_recv_callback */
