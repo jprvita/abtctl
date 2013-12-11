@@ -718,44 +718,73 @@ static void cmd_scan(char *args) {
 static void connect_cb(int conn_id, int status, int client_if,
                        bt_bdaddr_t *bda) {
     char addr_str[BT_ADDRESS_STR_LEN];
+    connection_t *conn;
 
     clear_list_cache();
+
+    /* Get the space reserved on buffer (conn_id is zero) */
+    conn = get_connection(PENDING_CONN_ID);
+    if (conn == NULL) {
+        rl_printf("No space reserved on buffer\n");
+        return;
+    }
 
     if (status != 0) {
         rl_printf("Failed to connect to device %s, status: %i\n",
                   ba2str(bda->address, addr_str), status);
+        conn->conn_id = INVALID_CONN_ID;
         return;
     }
 
     rl_printf("Connected to device %s, conn_id: %d, client_if: %d\n",
               ba2str(bda->address, addr_str), conn_id, client_if);
-    u.conn_id = conn_id;
+
+    conn->conn_id = conn_id;
 }
 
 static void disconnect_cb(int conn_id, int status, int client_if,
                           bt_bdaddr_t *bda) {
     char addr_str[BT_ADDRESS_STR_LEN];
+    connection_t *conn;
 
     rl_printf("Disconnected from device %s, conn_id: %d, client_if: %d, "
               "status: %d\n", ba2str(bda->address, addr_str), conn_id,
               client_if, status);
 
-    u.conn_id = 0;
+    conn = get_connection(conn_id);
+    if (conn != NULL)
+        conn->conn_id = INVALID_CONN_ID;
 }
 
 static void cmd_disconnect(char *args) {
     bt_status_t status;
+    connection_t *conn;
+    int id;
 
-    if (u.conn_id <= 0) {
-        rl_printf("Device not connected\n");
+    if (sscanf(args, " %i ", &id) != 1) {
+        rl_printf("Usage: disconnect <connection ID>\n");
         return;
     }
 
-    status = u.gattiface->client->disconnect(u.client_if, &u.remote_addr,
-                                             u.conn_id);
+    conn = get_connection(id);
+    if (conn == NULL) {
+        rl_printf("Invalid connection ID\n");
+        return;
+    }
+
+    status = u.gattiface->client->disconnect(u.client_if, &conn->remote_addr,
+                                             conn->conn_id);
     if (status != BT_STATUS_SUCCESS) {
         rl_printf("Failed to disconnect, status: %d\n", status);
         return;
+    }
+
+    if (id == PENDING_CONN_ID) {
+        char addr_str[BT_ADDRESS_STR_LEN];
+
+        conn->conn_id = INVALID_CONN_ID;
+        rl_printf("Cancel pending connection: %s\n",
+                  ba2str(conn->remote_addr.address, addr_str));
     }
 }
 
@@ -803,8 +832,9 @@ void ssp_request_cb(bt_bdaddr_t *remote_bd_addr, bt_bdname_t *bd_name,
 
 static void cmd_connect(char *args) {
     bt_status_t status;
+    connection_t *conn = NULL;
     char arg[MAX_LINE_SIZE];
-    int ret;
+    int ret, i;
 
     if (u.gattiface == NULL) {
         rl_printf("Unable to BLE connect: GATT interface not available\n");
@@ -821,9 +851,30 @@ static void cmd_connect(char *args) {
         return;
     }
 
+    /* Check if there is a pending connect (conn_id is zero) */
+    conn = get_connection(PENDING_CONN_ID);
+    if (conn != NULL) {
+        rl_printf("Unable to connect: previous connecting on going\n");
+        return;
+    }
+
+    /* Check if there is space available and save the index */
+    for (i = 0; i < MAX_CONNECTIONS; i++)
+        if (u.conns[i].conn_id == INVALID_CONN_ID) {
+            conn = &u.conns[i];
+            break;
+        }
+
+    /* No space available on buffer */
+    if (conn == NULL) {
+        rl_printf("Unable to connect: maximum number of connections "
+                  "exceeded\n");
+        return;
+    }
+
     line_get_str(&args, arg);
 
-    ret = str2ba(arg, &u.remote_addr);
+    ret = str2ba(arg, &conn->remote_addr);
     if (ret != 0) {
         rl_printf("Unable to connect: Invalid bluetooth address: %s\n", arg);
         return;
@@ -831,11 +882,15 @@ static void cmd_connect(char *args) {
 
     rl_printf("Connecting to: %s\n", arg);
 
-    status = u.gattiface->client->connect(u.client_if, &u.remote_addr, true);
+    status = u.gattiface->client->connect(u.client_if, &conn->remote_addr,
+                                          true);
     if (status != BT_STATUS_SUCCESS) {
         rl_printf("Failed to connect, status: %d\n", status);
         return;
     }
+
+    /* Lock the space on buffer */
+    conn->conn_id = PENDING_CONN_ID;
 }
 
 static void bond_state_changed_cb(bt_status_t status, bt_bdaddr_t *bda,
