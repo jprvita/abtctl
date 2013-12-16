@@ -184,12 +184,17 @@ static connection_t *get_connection(int conn_id)
 }
 
 /* clear any cache list of connected device */
-static void clear_list_cache() {
+static void clear_list_cache(int conn_id) {
+    connection_t *conn;
     uint8_t i;
 
-    for (i = 0; i < u.svcs_size; i++)
-        u.svcs[i].char_count = 0;
-    u.svcs_size = 0;
+    conn = get_connection(conn_id);
+    if (conn == NULL)
+        return;
+
+    for (i = 0; i < conn->svcs_size; i++)
+        conn->svcs[i].char_count = 0;
+    conn->svcs_size = 0;
 }
 
 static int find_svc(btgatt_srvc_id_t *svc) {
@@ -720,8 +725,6 @@ static void connect_cb(int conn_id, int status, int client_if,
     char addr_str[BT_ADDRESS_STR_LEN];
     connection_t *conn;
 
-    clear_list_cache();
-
     /* Get the space reserved on buffer (conn_id is zero) */
     conn = get_connection(PENDING_CONN_ID);
     if (conn == NULL) {
@@ -752,8 +755,10 @@ static void disconnect_cb(int conn_id, int status, int client_if,
               client_if, status);
 
     conn = get_connection(conn_id);
-    if (conn != NULL)
+    if (conn != NULL) {
         conn->conn_id = INVALID_CONN_ID;
+        clear_list_cache(conn_id);
+    }
 }
 
 static void cmd_disconnect(char *args) {
@@ -785,6 +790,7 @@ static void cmd_disconnect(char *args) {
         conn->conn_id = INVALID_CONN_ID;
         rl_printf("Cancel pending connection: %s\n",
                   ba2str(conn->remote_addr.address, addr_str));
+        clear_list_cache(id);
     }
 }
 
@@ -1007,14 +1013,16 @@ void search_complete_cb(int conn_id, int status) {
 /* called for each search result */
 void search_result_cb(int conn_id, btgatt_srvc_id_t *srvc_id) {
     char uuid_str[UUID128_STR_LEN] = {0};
+    connection_t *conn = get_connection(conn_id);
 
-    if (u.svcs_size < MAX_SVCS_SIZE) {
+    if (conn->svcs_size < MAX_SVCS_SIZE) {
         /* srvc_id value is replaced each time, so we need to copy it */
-        memcpy(&u.svcs[u.svcs_size].svc_id, srvc_id, sizeof(btgatt_srvc_id_t));
-        u.svcs_size++;
+        memcpy(&conn->svcs[conn->svcs_size].svc_id, srvc_id,
+               sizeof(btgatt_srvc_id_t));
+        conn->svcs_size++;
     }
 
-    rl_printf("ID:%i %s UUID: %s instance:%i\n", u.svcs_size - 1,
+    rl_printf("ID:%i %s UUID: %s instance:%i\n", conn->svcs_size - 1,
               srvc_id->is_primary ? "Primary" : "Secondary",
               uuid2str(&srvc_id->id.uuid, uuid_str), srvc_id->id.inst_id);
 }
@@ -1022,19 +1030,32 @@ void search_result_cb(int conn_id, btgatt_srvc_id_t *srvc_id) {
 static void cmd_search_svc(char *args) {
     char arg[MAX_LINE_SIZE];
     bt_status_t status;
-
-    if (u.conn_id <= 0) {
-        rl_printf("Not connected\n");
-        return;
-    }
+    connection_t *conn;
+    int conn_id;
 
     if (u.gattiface == NULL) {
         rl_printf("Unable to BLE search-svc: GATT interface not avaiable\n");
         return;
     }
 
-    clear_list_cache();
+    /* Get connection ID argument */
+    line_get_str(&args, arg);
+    if (sscanf(arg, " %i ", &conn_id) != 1) {
+        rl_printf("Usage: search-svc <connection ID> [UUID]\n");
+        return;
+    }
+    conn = get_connection(conn_id);
+    if (conn == NULL) {
+        rl_printf("Invalid connection ID\n");
+        return;
+    } else if (conn_id == PENDING_CONN_ID) {
+        rl_printf("Connection is not active\n");
+        return;
+    }
 
+    clear_list_cache(conn_id);
+
+    /* Get UUID argument (if exists) */
     line_get_str(&args, arg);
     if (strlen(arg) > 0) {
             bt_uuid_t uuid;
@@ -1043,9 +1064,9 @@ static void cmd_search_svc(char *args) {
                 return;
             }
 
-            status = u.gattiface->client->search_service(u.conn_id, &uuid);
+            status = u.gattiface->client->search_service(conn_id, &uuid);
     } else
-            status = u.gattiface->client->search_service(u.conn_id, NULL);
+            status = u.gattiface->client->search_service(conn_id, NULL);
 
     if (status != BT_STATUS_SUCCESS) {
         rl_printf("Failed to search services\n");
