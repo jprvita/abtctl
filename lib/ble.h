@@ -106,6 +106,30 @@ typedef void (*ble_bond_state_cb_t)(const uint8_t *address,
                                     ble_bond_state_t state, int status);
 
 /**
+ * Type that represents a callback function to notify of a new GATT element
+ * (service, characteristic or descriptor) found in a BLE device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param id ID of the service, characteristic or descriptor.
+ * @param uuid A pointer to a 16 element array representing each part of the
+ *             service, characteristic or descriptor UUID.
+ * @param props Additional element properties. For services, whether the service
+ *              is primary or not: 1 primary, 0 included. Always zero for other
+ *              GATT elements.
+ */
+typedef void (*ble_gatt_found_cb_t)(int conn_id, int id, const uint8_t *uuid,
+                                    int props);
+
+/**
+ * Type that represents a callback function to notify that a GATT operation has
+ * finished.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param status The status in which the operation has finished.
+ */
+typedef void (*ble_gatt_finished_cb_t)(int conn_id, int status);
+
+/**
  * List of callbacks for BLE operations.
  */
 typedef struct ble_cbs {
@@ -115,6 +139,8 @@ typedef struct ble_cbs {
     ble_connect_cb_t connect_cb;
     ble_connect_cb_t disconnect_cb;
     ble_bond_state_cb_t bond_state_cb;
+    ble_gatt_found_cb_t srvc_found_cb;
+    ble_gatt_finished_cb_t srvc_finished_cb;
 } ble_cbs_t;
 
 /**
@@ -219,4 +245,18 @@ int ble_cancel_pairing(const uint8_t *address);
  * @return -1 if failed to remove bond.
  */
 int ble_remove_bond(const uint8_t *address);
+
+/**
+ * Discover services in a BLE device.
+ *
+ * There should be an active connection with the device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param uuid Service UUID: if not NULL then only services with this UUID will
+ *             be notified.
+ *
+ * @return 0 if service discovery has been successfully requested.
+ * @return -1 if failed to request service discovery.
+ */
+int ble_gatt_discover_services(int conn_id, const uint8_t *uuid);
 #endif

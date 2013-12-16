@@ -37,6 +37,9 @@ struct ble_device {
     bt_bdaddr_t bda;
     int conn_id;
 
+    btgatt_srvc_id_t *srvcs;
+    uint8_t srvc_count;
+
     ble_device_t *next;
 };
 
@@ -277,6 +280,76 @@ int ble_remove_bond(const uint8_t *address) {
     return ble_pair_internal(address, 2);
 }
 
+static ble_device_t *find_device_by_conn_id(int conn_id) {
+    ble_device_t *dev;
+
+    for (dev = data.devices; dev ; dev = dev->next)
+        if (dev->conn_id == conn_id)
+            break;
+
+    return dev;
+}
+
+static int find_service(ble_device_t *dev, btgatt_srvc_id_t *srvc_id) {
+    int id;
+
+    for (id = 0; id < dev->srvc_count; id++)
+        if (!memcmp(&dev->srvcs[id], srvc_id, sizeof(btgatt_srvc_id_t)))
+            return id;
+
+    return -1;
+}
+
+/* Called when the service discovery finishes */
+void service_discovery_complete_cb(int conn_id, int status) {
+    if (data.cbs.srvc_finished_cb)
+        data.cbs.srvc_finished_cb(conn_id, status);
+}
+
+/* Called for each service discovery result */
+void service_discovery_result_cb(int conn_id, btgatt_srvc_id_t *srvc_id) {
+    int id;
+    ble_device_t *dev;
+
+    dev = find_device_by_conn_id(conn_id);
+    if (!dev)
+        return;
+
+    id = find_service(dev, srvc_id);
+    if (id < 0) {
+        id = dev->srvc_count++;
+        dev->srvcs = realloc(dev->srvcs,
+                             dev->srvc_count * sizeof(btgatt_srvc_id_t));
+        memcpy(&dev->srvcs[id], srvc_id, sizeof(btgatt_srvc_id_t));
+    }
+
+    if (data.cbs.srvc_found_cb)
+        data.cbs.srvc_found_cb(conn_id, id, srvc_id->id.uuid.uu,
+                               srvc_id->is_primary);
+}
+
+int ble_gatt_discover_services(int conn_id, const uint8_t *uuid) {
+    bt_status_t s;
+    bt_uuid_t uu, *u = NULL;
+
+    if (conn_id <= 0)
+        return -1;
+
+    if (!data.gattiface)
+        return -1;
+
+    if (uuid) {
+        memcpy(uu.uu, uuid, 16 * sizeof(uint8_t));
+        u = &uu;
+    }
+
+    s = data.gattiface->client->search_service(conn_id, u);
+    if (s != BT_STATUS_SUCCESS)
+        return -s;
+
+    return 0;
+}
+
 /* Called when the client registration is finished */
 static void register_client_cb(int status, int client_if, bt_uuid_t *app_uuid) {
     if (status == BT_STATUS_SUCCESS) {
@@ -293,8 +366,8 @@ static const btgatt_client_callbacks_t gattccbs = {
     scan_result_cb,
     connect_cb,
     disconnect_cb,
-    NULL, /* search_complete_cb */
-    NULL, /* search_result_cb */
+    service_discovery_complete_cb,
+    service_discovery_result_cb,
     NULL, /* get_characteristic_cb */
     NULL, /* get_descriptor_cb */
     NULL, /* get_included_service_cb */
@@ -418,7 +491,10 @@ static void remove_all_devices() {
     dev = data.devices;
     while (dev) {
         next = dev->next;
+
+        free(dev->srvcs);
         free(dev);
+
         dev = next;
     }
 }
