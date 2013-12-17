@@ -1171,7 +1171,7 @@ void get_characteristic_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
         rl_printf("Received invalid characteristic (service inexistent)\n");
         return;
     }
-    svc_info = &u.svcs[svc_id];
+    svc_info = &conn->svcs[svc_id];
 
     rl_printf("ID:%i UUID: %s instance:%i properties:0x%x\n",
               svc_info->char_count, uuid2str(&char_id->uuid, uuid_str),
@@ -1198,7 +1198,8 @@ void get_characteristic_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
     svc_info->char_count++;
 
     /* get next characteristic */
-    ret = u.gattiface->client->get_characteristic(u.conn_id, srvc_id, char_id);
+    ret = u.gattiface->client->get_characteristic(conn->conn_id, srvc_id,
+                                                  char_id);
     if (ret != BT_STATUS_SUCCESS) {
         rl_printf("Failed to list characteristics\n");
         return;
@@ -1208,12 +1209,9 @@ void get_characteristic_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
 /* search all characteristics of specific service */
 static void cmd_chars(char *args) {
     bt_status_t status;
-    int id;
-
-    if (u.conn_id <= 0) {
-        rl_printf("Not connected\n");
-        return;
-    }
+    connection_t *conn;
+    service_info_t *svc;
+    int id, conn_id;
 
     if (u.gattiface == NULL) {
         rl_printf("Unable to BLE characteristics: GATT interface not "
@@ -1221,39 +1219,46 @@ static void cmd_chars(char *args) {
         return;
     }
 
-    if (u.svcs_size <= 0) {
+    if (sscanf(args, " %i %i ", &conn_id, &id) != 2) {
+        rl_printf("Usage: characteristics <connection ID> <serviceID>\n");
+        return;
+    }
+
+    conn = get_connection(conn_id);
+    if (conn == NULL) {
+        rl_printf("Invalid connection ID\n");
+        return;
+    }
+
+    if (conn->svcs_size <= 0) {
         rl_printf("Run search-svc first to get all services list\n");
         return;
     }
 
-    if (sscanf(args, " %i ", &id) != 1) {
-        rl_printf("Usage: characteristics serviceID\n");
+    if (id < 0 || id >= conn->svcs_size) {
+        rl_printf("Invalid ID: %i need to be between 0 and %i\n", id,
+                  conn->svcs_size - 1);
         return;
     }
 
-    if (id < 0 || id >= u.svcs_size) {
-        rl_printf("Invalid serviceID: %i need to be between 0 and %i\n", id,
-                  u.svcs_size - 1);
-        return;
-    }
-
-    if (u.svcs[id].chars_buf == NULL) {
+    svc = &conn->svcs[id];
+    if (svc->chars_buf == NULL) {
         int i;
 
-        u.svcs[id].chars_buf_size = MAX_CHARS_SIZE;
-        u.svcs[id].chars_buf = malloc(sizeof(char_info_t) *
-                                      u.svcs[id].chars_buf_size);
+        svc->chars_buf_size = MAX_CHARS_SIZE;
+        svc->chars_buf = malloc(sizeof(char_info_t) * svc->chars_buf_size);
 
-        for (i = u.svcs[id].char_count; i < u.svcs[id].chars_buf_size; i++) {
-            u.svcs[id].chars_buf[i].descrs = NULL;
-            u.svcs[id].chars_buf[i].descr_count = 0;
+        for (i = svc->char_count; i < svc->chars_buf_size; i++) {
+            svc->chars_buf[i].descrs = NULL;
+            svc->chars_buf[i].descr_count = 0;
         }
-    } else if (u.svcs[id].char_count > 0)
-        u.svcs[id].char_count = 0;
+    } else if (svc->char_count > 0)
+        svc->char_count = 0;
 
     /* get first characteristic of service */
-    status = u.gattiface->client->get_characteristic(u.conn_id,
-                                                     &u.svcs[id].svc_id, NULL);
+    status = u.gattiface->client->get_characteristic(conn->conn_id,
+                                                     &svc->svc_id,
+                                                     NULL);
     if (status != BT_STATUS_SUCCESS) {
         rl_printf("Failed to list characteristics\n");
         return;
