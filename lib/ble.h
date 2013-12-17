@@ -130,6 +130,23 @@ typedef void (*ble_gatt_found_cb_t)(int conn_id, int id, const uint8_t *uuid,
 typedef void (*ble_gatt_finished_cb_t)(int conn_id, int status);
 
 /**
+ * Type that represents a callback function to forward a GATT operation
+ * response.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param id ID of the GATT element that the operation was executed uppon.
+ * @param value The value in the operation response.
+ * @param value_len The length of the data pointed by the value parameter.
+ * @param value_type The type of the data pointed by the value parameter.
+ * @param status The status in which the operation has finished.
+ *
+ * TODO: Document the semantics of value_type
+ */
+typedef void (*ble_gatt_response_cb_t)(int conn_id, int id,
+                                       const uint8_t *value, uint16_t value_len,
+                                       uint16_t value_type, int status);
+
+/**
  * List of callbacks for BLE operations.
  */
 typedef struct ble_cbs {
@@ -145,6 +162,7 @@ typedef struct ble_cbs {
     ble_gatt_finished_cb_t char_finished_cb;
     ble_gatt_found_cb_t desc_found_cb;
     ble_gatt_finished_cb_t desc_finished_cb;
+    ble_gatt_response_cb_t char_read_cb;
 } ble_cbs_t;
 
 /**
@@ -291,4 +309,19 @@ int ble_gatt_discover_characteristics(int conn_id, int service_id);
  * @return -1 if failed to request descriptor discovery.
  */
 int ble_gatt_discover_descriptors(int conn_id, int char_id);
+
+/**
+ * Read the value of a characteristic.
+ *
+ * There should be an active connection with the device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param char_id The identifier of the characteristic to be read.
+ * @param auth Whether or not link authentication should be requested before
+ *             trying to read the characteristic: 1 request, 0 do not request.
+ *
+ * @return 0 if characteristic read has been successfully requested.
+ * @return -1 if failed to request characteristic read.
+ */
+int ble_gatt_read_char(int conn_id, int char_id, int auth);
 #endif

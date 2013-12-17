@@ -528,6 +528,62 @@ int ble_gatt_discover_descriptors(int conn_id, int char_id) {
     return 0;
 }
 
+/* Called when a GATT read characteristic operation returns */
+void read_characteristic_cb(int conn_id, int status,
+                            btgatt_read_params_t *p_data) {
+    ble_device_t *dev;
+    int id = -1;
+
+    dev = find_device_by_conn_id(conn_id);
+    if (dev)
+        id = find_characteristic(dev, &p_data->srvc_id, &p_data->char_id);
+
+    if (data.cbs.char_read_cb)
+        data.cbs.char_read_cb(conn_id, id, p_data->value.value,
+                              p_data->value.len, p_data->value_type, status);
+}
+
+static int ble_gatt_op(int operation, int conn_id, int id, int auth) {
+    ble_device_t *dev;
+    bt_status_t s = BT_STATUS_UNSUPPORTED;
+
+    if (id < 0)
+        return -1;
+
+    if (conn_id <= 0)
+        return -1;
+
+    if (!data.gattiface)
+        return -1;
+
+    dev = find_device_by_conn_id(conn_id);
+    if (!dev)
+        return -1;
+
+    switch (operation) {
+        case 0: /* Read characteristic */
+            if (dev->char_count <= 0)
+                return -1;
+            if (id >= dev->char_count)
+                return -1;
+
+            s = data.gattiface->client->read_characteristic(conn_id,
+	                                                    &dev->chars[id].s,
+	                                                    &dev->chars[id].c,
+                                                            auth);
+            break;
+    }
+
+    if (s != BT_STATUS_SUCCESS)
+        return -s;
+
+    return 0;
+}
+
+int ble_gatt_read_char(int conn_id, int char_id, int auth) {
+    return ble_gatt_op(0, conn_id, char_id, auth);
+}
+
 /* Called when the client registration is finished */
 static void register_client_cb(int status, int client_if, bt_uuid_t *app_uuid) {
     if (status == BT_STATUS_SUCCESS) {
@@ -551,7 +607,7 @@ static const btgatt_client_callbacks_t gattccbs = {
     NULL, /* get_included_service_cb */
     NULL, /* register_for_notification_cb */
     NULL, /* notify_cb */
-    NULL, /* read_characteristic_cb */
+    read_characteristic_cb,
     NULL, /* write_characteristic_cb */
     NULL, /* read_descriptor_cb */
     NULL, /* write_descriptor_cb */
