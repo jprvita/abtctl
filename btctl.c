@@ -197,13 +197,13 @@ static void clear_list_cache(int conn_id) {
     conn->svcs_size = 0;
 }
 
-static int find_svc(btgatt_srvc_id_t *svc) {
+static int find_svc(connection_t *conn, btgatt_srvc_id_t *svc) {
     uint8_t i;
 
-    for (i = 0; i < u.svcs_size; i++)
-        if (u.svcs[i].svc_id.is_primary == svc->is_primary &&
-            u.svcs[i].svc_id.id.inst_id == svc->id.inst_id &&
-            !memcmp(&u.svcs[i].svc_id.id.uuid, &svc->id.uuid,
+    for (i = 0; i < conn->svcs_size; i++)
+        if (conn->svcs[i].svc_id.is_primary == svc->is_primary &&
+            conn->svcs[i].svc_id.id.inst_id == svc->id.inst_id &&
+            !memcmp(&conn->svcs[i].svc_id.id.uuid, &svc->id.uuid,
                     sizeof(bt_uuid_t)))
             return i;
     return -1;
@@ -1146,6 +1146,7 @@ void get_characteristic_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
     char uuid_str[UUID128_STR_LEN] = {0};
     int svc_id;
     service_info_t *svc_info;
+    connection_t *conn;
 
     if (status != 0) {
         if (status == 0x85) { /* it's not really an error, just finished */
@@ -1158,7 +1159,13 @@ void get_characteristic_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
         return;
     }
 
-    svc_id = find_svc(srvc_id);
+    conn = get_connection(conn_id);
+    if (conn == NULL) {
+        rl_printf("%s: Invalid connection ID\n", __func__);
+        return;
+    }
+
+    svc_id = find_svc(conn, srvc_id);
 
     if (svc_id < 0) {
         rl_printf("Received invalid characteristic (service inexistent)\n");
@@ -1470,6 +1477,7 @@ void get_descriptor_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
     int svc_id, ch_id;
     service_info_t *svc_info = NULL;
     char_info_t *char_info = NULL;
+    connection_t *conn;
 
     if (status != 0) {
         if (status == 0x85) { /* it's not really an error, just finished */
@@ -1482,7 +1490,13 @@ void get_descriptor_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
         return;
     }
 
-    svc_id = find_svc(srvc_id);
+    conn = get_connection(conn_id);
+    if (conn == NULL) {
+        rl_printf("%s: Invalid connection ID\n", __func__);
+        return;
+    }
+
+    svc_id = find_svc(conn, srvc_id);
     if (svc_id < 0) {
         rl_printf("Received invalid descriptor (service inexistent)\n");
         return;
