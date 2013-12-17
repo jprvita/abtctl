@@ -143,6 +143,8 @@ typedef struct ble_cbs {
     ble_gatt_finished_cb_t srvc_finished_cb;
     ble_gatt_found_cb_t char_found_cb;
     ble_gatt_finished_cb_t char_finished_cb;
+    ble_gatt_found_cb_t desc_found_cb;
+    ble_gatt_finished_cb_t desc_finished_cb;
 } ble_cbs_t;
 
 /**
@@ -275,4 +277,18 @@ int ble_gatt_discover_services(int conn_id, const uint8_t *uuid);
  * @return -1 if failed to request characteristic discovery.
  */
 int ble_gatt_discover_characteristics(int conn_id, int service_id);
+
+/**
+ * Discover descriptors of a characteristic of a BLE device.
+ *
+ * There should be an active connection with the device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param char_id The identifier of the characteristic in which the descriptor
+ *                discovery will be run.
+ *
+ * @return 0 if descriptor discovery has been successfully requested.
+ * @return -1 if failed to request descriptor discovery.
+ */
+int ble_gatt_discover_descriptors(int conn_id, int char_id);
 #endif

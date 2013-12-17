@@ -38,6 +38,13 @@ struct ble_gatt_char {
     btgatt_char_id_t c;
 };
 
+/* Internal representation of a GATT descriptor */
+typedef struct ble_gatt_desc ble_gatt_desc_t;
+struct ble_gatt_desc {
+    ble_gatt_char_t c;
+    bt_uuid_t d;
+};
+
 /* Internal representation of a BLE device */
 typedef struct ble_device ble_device_t;
 struct ble_device {
@@ -48,6 +55,8 @@ struct ble_device {
     uint8_t srvc_count;
     ble_gatt_char_t *chars;
     uint8_t char_count;
+    ble_gatt_desc_t *descs;
+    uint8_t desc_count;
 
     ble_device_t *next;
 };
@@ -438,6 +447,87 @@ int ble_gatt_discover_characteristics(int conn_id, int service_id) {
     return 0;
 }
 
+static int find_descriptor(ble_device_t *dev, btgatt_srvc_id_t *srvc_id,
+                           btgatt_char_id_t *char_id, bt_uuid_t *descr_id) {
+    int id;
+
+    for (id = 0; id < dev->desc_count; id++)
+        if (!memcmp(&dev->descs[id].d, descr_id, sizeof(bt_uuid_t)) &&
+            !memcmp(&dev->descs[id].c.c, char_id, sizeof(btgatt_char_id_t)) &&
+            !memcmp(&dev->descs[id].c.s, srvc_id, sizeof(btgatt_srvc_id_t)))
+            return id;
+
+    return -1;
+}
+
+/* Called for each descriptor discovery result */
+static void descriptor_discovery_cb(int conn_id, int status,
+                                    btgatt_srvc_id_t *srvc_id,
+                                    btgatt_char_id_t *char_id,
+                                    bt_uuid_t *descr_id) {
+    ble_device_t *dev;
+    int id;
+    bt_status_t s;
+
+    if (status != 0) {
+        if (data.cbs.desc_finished_cb)
+            data.cbs.desc_finished_cb(conn_id, status);
+        return;
+    }
+
+    dev = find_device_by_conn_id(conn_id);
+    if (!dev)
+        return;
+
+    id = find_descriptor(dev, srvc_id, char_id, descr_id);
+    if (id < 0) {
+        id = dev->desc_count++;
+        dev->descs = realloc(dev->descs,
+                             dev->desc_count * sizeof(ble_gatt_desc_t));
+        memcpy(&dev->descs[id].c.s, srvc_id, sizeof(btgatt_srvc_id_t));
+        memcpy(&dev->descs[id].c.c, char_id, sizeof(btgatt_char_id_t));
+        memcpy(&dev->descs[id].d, descr_id, sizeof(bt_uuid_t));
+    }
+
+    if (data.cbs.desc_found_cb)
+        data.cbs.desc_found_cb(conn_id, id, descr_id->uu, 0);
+
+    /* Get next descriptor */
+    s = data.gattiface->client->get_descriptor(conn_id, srvc_id, char_id,
+                                               descr_id);
+    if (s != BT_STATUS_SUCCESS)
+        if (data.cbs.desc_finished_cb)
+            data.cbs.desc_finished_cb(conn_id, status);
+}
+
+int ble_gatt_discover_descriptors(int conn_id, int char_id) {
+    ble_device_t *dev;
+    bt_status_t s;
+
+    if (conn_id <= 0)
+        return -1;
+
+    if (!data.gattiface)
+        return -1;
+
+    dev = find_device_by_conn_id(conn_id);
+    if (!dev)
+        return -1;
+
+    if (dev->char_count <= 0)
+        return -1;
+
+    if (char_id < 0 || char_id >= dev->char_count)
+        return -1;
+
+    s = data.gattiface->client->get_descriptor(conn_id, &dev->chars[char_id].s,
+                                               &dev->chars[char_id].c, NULL);
+    if (s != BT_STATUS_SUCCESS)
+        return -s;
+
+    return 0;
+}
+
 /* Called when the client registration is finished */
 static void register_client_cb(int status, int client_if, bt_uuid_t *app_uuid) {
     if (status == BT_STATUS_SUCCESS) {
@@ -457,7 +547,7 @@ static const btgatt_client_callbacks_t gattccbs = {
     service_discovery_complete_cb,
     service_discovery_result_cb,
     characteristic_discovery_cb,
-    NULL, /* get_descriptor_cb */
+    descriptor_discovery_cb,
     NULL, /* get_included_service_cb */
     NULL, /* register_for_notification_cb */
     NULL, /* notify_cb */
@@ -582,6 +672,7 @@ static void remove_all_devices() {
 
         free(dev->srvcs);
         free(dev->chars);
+        free(dev->descs);
         free(dev);
 
         dev = next;
