@@ -141,6 +141,8 @@ typedef struct ble_cbs {
     ble_bond_state_cb_t bond_state_cb;
     ble_gatt_found_cb_t srvc_found_cb;
     ble_gatt_finished_cb_t srvc_finished_cb;
+    ble_gatt_found_cb_t char_found_cb;
+    ble_gatt_finished_cb_t char_finished_cb;
 } ble_cbs_t;
 
 /**
@@ -259,4 +261,18 @@ int ble_remove_bond(const uint8_t *address);
  * @return -1 if failed to request service discovery.
  */
 int ble_gatt_discover_services(int conn_id, const uint8_t *uuid);
+
+/**
+ * Discover characteristics in a service of a BLE device.
+ *
+ * There should be an active connection with the device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param service_id The identifier of the remote service in which the
+ *                   characteristic discovery will be run.
+ *
+ * @return 0 if characteristic discovery has been successfully requested.
+ * @return -1 if failed to request characteristic discovery.
+ */
+int ble_gatt_discover_characteristics(int conn_id, int service_id);
 #endif

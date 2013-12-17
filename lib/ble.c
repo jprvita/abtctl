@@ -31,6 +31,13 @@
 
 #include "ble.h"
 
+/* Internal representation of a GATT characteristic */
+typedef struct ble_gatt_char ble_gatt_char_t;
+struct ble_gatt_char {
+    btgatt_srvc_id_t s;
+    btgatt_char_id_t c;
+};
+
 /* Internal representation of a BLE device */
 typedef struct ble_device ble_device_t;
 struct ble_device {
@@ -39,6 +46,8 @@ struct ble_device {
 
     btgatt_srvc_id_t *srvcs;
     uint8_t srvc_count;
+    ble_gatt_char_t *chars;
+    uint8_t char_count;
 
     ble_device_t *next;
 };
@@ -350,6 +359,85 @@ int ble_gatt_discover_services(int conn_id, const uint8_t *uuid) {
     return 0;
 }
 
+static int find_characteristic(ble_device_t *dev, btgatt_srvc_id_t *srvc_id,
+                               btgatt_char_id_t *char_id) {
+    int id;
+
+    for (id = 0; id < dev->char_count; id++)
+        if (!memcmp(&dev->chars[id].c, char_id, sizeof(btgatt_char_id_t)) &&
+            !memcmp(&dev->chars[id].s, srvc_id, sizeof(btgatt_srvc_id_t)))
+            return id;
+
+    return -1;
+}
+
+/* Called for each characteristic discovery result */
+static void characteristic_discovery_cb(int conn_id, int status,
+                                        btgatt_srvc_id_t *srvc_id,
+                                        btgatt_char_id_t *char_id,
+                                        int char_prop) {
+    ble_device_t *dev;
+    int id;
+    bt_status_t s;
+
+    if (status != 0) {
+        if (data.cbs.char_finished_cb)
+            data.cbs.char_finished_cb(conn_id, status);
+        return;
+    }
+
+    dev = find_device_by_conn_id(conn_id);
+    if (!dev)
+        return;
+
+    id = find_characteristic(dev, srvc_id, char_id);
+    if (id < 0) {
+        id = dev->char_count++;
+        dev->chars = realloc(dev->chars,
+                             dev->char_count * sizeof(ble_gatt_char_t));
+        memcpy(&dev->chars[id].s, srvc_id, sizeof(btgatt_srvc_id_t));
+        memcpy(&dev->chars[id].c, char_id, sizeof(btgatt_char_id_t));
+    }
+
+    if (data.cbs.char_found_cb)
+        data.cbs.char_found_cb(conn_id, id, char_id->uuid.uu, char_prop);
+
+    /* Get next characteristic */
+    s = data.gattiface->client->get_characteristic(conn_id, srvc_id, char_id);
+    if (s != BT_STATUS_SUCCESS)
+        if (data.cbs.char_finished_cb)
+            data.cbs.char_finished_cb(conn_id, status);
+}
+
+int ble_gatt_discover_characteristics(int conn_id, int service_id) {
+    ble_device_t *dev;
+    bt_status_t s;
+
+    if (conn_id <= 0)
+        return -1;
+
+    if (!data.gattiface)
+        return -1;
+
+    dev = find_device_by_conn_id(conn_id);
+    if (!dev)
+        return -1;
+
+    if (dev->srvc_count <= 0)
+        return -1;
+
+    if (service_id < 0 || service_id >= dev->srvc_count)
+        return -1;
+
+    s = data.gattiface->client->get_characteristic(conn_id,
+                                                   &dev->srvcs[service_id],
+                                                   NULL);
+    if (s != BT_STATUS_SUCCESS)
+        return -s;
+
+    return 0;
+}
+
 /* Called when the client registration is finished */
 static void register_client_cb(int status, int client_if, bt_uuid_t *app_uuid) {
     if (status == BT_STATUS_SUCCESS) {
@@ -368,7 +456,7 @@ static const btgatt_client_callbacks_t gattccbs = {
     disconnect_cb,
     service_discovery_complete_cb,
     service_discovery_result_cb,
-    NULL, /* get_characteristic_cb */
+    characteristic_discovery_cb,
     NULL, /* get_descriptor_cb */
     NULL, /* get_included_service_cb */
     NULL, /* register_for_notification_cb */
@@ -493,6 +581,7 @@ static void remove_all_devices() {
         next = dev->next;
 
         free(dev->srvcs);
+        free(dev->chars);
         free(dev);
 
         dev = next;
