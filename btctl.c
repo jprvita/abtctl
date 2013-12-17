@@ -1101,39 +1101,38 @@ void get_included_service_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id,
 static void cmd_included(char *args) {
     char arg[MAX_LINE_SIZE];
     bt_status_t status;
-    int id;
-
-    if (u.conn_id <= 0) {
-        rl_printf("Not connected\n");
-        return;
-    }
+    connection_t *conn;
+    int conn_id, id;
 
     if (u.gattiface == NULL) {
         rl_printf("Unable to BLE included: GATT interface not avaiable\n");
         return;
     }
 
-    if (u.svcs_size <= 0) {
+    if (sscanf(args, " %i %i", &conn_id, &id) != 2) {
+        rl_printf("Usage: included <connection ID> <service ID>\n");
+        return;
+    }
+    conn = get_connection(conn_id);
+    if (conn == NULL) {
+        rl_printf("Invalid connection ID\n");
+        return;
+    }
+
+    if (conn->svcs_size <= 0) {
         rl_printf("Run search-svc first to get all services list\n");
         return;
     }
 
-    line_get_str(&args, arg);
-    if (strlen(arg) <= 0) {
-        rl_printf("Usage: included ID\n");
-        return;
-    }
-
-    id = atoi(arg);
-    if (id < 0 || id >= u.svcs_size) {
+    if (id < 0 || id >= conn->svcs_size) {
         rl_printf("Invalid ID: %s need to be between 0 and %i\n", arg,
-                  u.svcs_size - 1);
+                  conn->svcs_size - 1);
         return;
     }
 
     /* get first included service */
-    status = u.gattiface->client->get_included_service(u.conn_id,
-                                                       &u.svcs[id].svc_id,
+    status = u.gattiface->client->get_included_service(conn->conn_id,
+                                                       &conn->svcs[id].svc_id,
                                                        NULL);
     if (status != BT_STATUS_SUCCESS) {
         rl_printf("Failed to list included services\n");
