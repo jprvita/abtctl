@@ -1293,36 +1293,40 @@ static void cmd_read_char(char *args) {
     bt_status_t status;
     service_info_t *svc_info;
     char_info_t *char_info;
-    int svc_id, char_id, auth;
-
-    if (u.conn_id <= 0) {
-        rl_printf("Not connected\n");
-        return;
-    }
+    connection_t *conn;
+    int svc_id, char_id, auth, conn_id;
 
     if (u.gattiface == NULL) {
         rl_printf("Unable to BLE read-char: GATT interface not avaiable\n");
         return;
     }
 
-    if (u.svcs_size <= 0) {
-        rl_printf("Run search-svc first to get all services list\n");
-        return;
-    }
-
-    if (sscanf(args, " %i %i %i ", &svc_id, &char_id, &auth) != 3) {
-        rl_printf("Usage: read-char serviceID characteristicID auth\n");
+    if (sscanf(args, " %i %i %i %i ", &conn_id, &svc_id, &char_id, &auth)
+        != 4) {
+        rl_printf("Usage: read-char <connection ID> <serviceID> "
+                  "<characteristicID> <auth>\n");
         rl_printf("  auth - enable authentication (1) or not (0)\n");
         return;
     }
 
-    if (svc_id < 0 || svc_id >= u.svcs_size) {
-        rl_printf("Invalid serviceID: %i need to be between 0 and %i\n", svc_id,
-                  u.svcs_size - 1);
+    conn = get_connection(conn_id);
+    if (conn == NULL) {
+        rl_printf("Invalid connection ID\n");
         return;
     }
 
-    svc_info = &u.svcs[svc_id];
+    if (conn->svcs_size <= 0) {
+        rl_printf("Run search-svc first to get all services list\n");
+        return;
+    }
+
+    if (svc_id < 0 || svc_id >= conn->svcs_size) {
+        rl_printf("Invalid serviceID: %i need to be between 0 and %i\n", svc_id,
+                  conn->svcs_size - 1);
+        return;
+    }
+
+    svc_info = &conn->svcs[svc_id];
     if (char_id < 0 || char_id >= svc_info->char_count) {
         rl_printf("Invalid characteristicID, try to run characteristics "
                   "command.\n");
@@ -1330,7 +1334,7 @@ static void cmd_read_char(char *args) {
     }
 
     char_info = &svc_info->chars_buf[char_id];
-    status = u.gattiface->client->read_characteristic(u.conn_id,
+    status = u.gattiface->client->read_characteristic(conn->conn_id,
                                                       &svc_info->svc_id,
                                                       &char_info->char_id,
                                                       auth);
