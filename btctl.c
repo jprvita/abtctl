@@ -1972,18 +1972,30 @@ void read_remote_rssi_cb(int client_if, bt_bdaddr_t *bda, int rssi,
 
 static void cmd_rssi(char *args) {
     bt_status_t status;
-
-    if (u.conn_id <= 0) {
-        rl_printf("Not connected\n");
-        return;
-    }
+    connection_t *conn;
+    int conn_id;
 
     if (u.gattiface == NULL) {
         rl_printf("Unable to BLE RSSI: GATT interface not avaiable\n");
         return;
     }
 
-    status = u.gattiface->client->read_remote_rssi(u.client_if, &u.remote_addr);
+    if (sscanf(args, " %i ", &conn_id) != 1) {
+        rl_printf("Usage: rssi <connection ID>\n");
+        return;
+    }
+
+    conn = get_connection(conn_id);
+    if (conn == NULL) {
+        rl_printf("Invalid connection ID\n");
+        return;
+    } else if (conn_id == PENDING_CONN_ID) {
+        rl_printf("Connection is not active\n");
+        return;
+    }
+
+    status = u.gattiface->client->read_remote_rssi(u.client_if,
+                                                   &conn->remote_addr);
     if (status != BT_STATUS_SUCCESS) {
         rl_printf("Failed to request RSSI, status: %d\n", status);
         return;
