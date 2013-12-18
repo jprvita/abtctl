@@ -165,6 +165,7 @@ typedef struct ble_cbs {
     ble_gatt_response_cb_t char_read_cb;
     ble_gatt_response_cb_t desc_read_cb;
     ble_gatt_response_cb_t char_write_cb;
+    ble_gatt_response_cb_t desc_write_cb;
 } ble_cbs_t;
 
 /**
@@ -378,5 +379,43 @@ int ble_gatt_write_cmd_char(int conn_id, int char_id, int auth,
  * @return -1 if failed to request characteristic write.
  */
 int ble_gatt_write_req_char(int conn_id, int char_id, int auth,
+                            const char *value, int len);
+
+/**
+ * Write the value of a descriptor using write command (no response).
+ *
+ * There should be an active connection with the device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param desc_id The identifier of the descriptor to be written.
+ * @param auth Whether or not link encryption should be requested before trying
+ *             to write the descriptor: 1 request, 0 do not request.
+ * @param value Pointer to the value that should be written on the
+ *              descriptor.
+ * @param len The length of the data pointed by the value parameter.
+ *
+ * @return 0 if descriptor write has been successfully requested.
+ * @return -1 if failed to request descriptor write.
+ */
+int ble_gatt_write_cmd_desc(int conn_id, int desc_id, int auth,
+                            const char *value, int len);
+
+/**
+ * Write the value of a descriptor using write request (with response).
+ *
+ * There should be an active connection with the device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param desc_id The identifier of the descriptor to be written.
+ * @param auth Whether or not link encryption should be requested before trying
+ *             to write the descriptor: 1 request, 0 do not request.
+ * @param value Pointer to the value that should be written on the
+ *              descriptor.
+ * @param len The length of the data pointed by the value parameter.
+ *
+ * @return 0 if descriptor write has been successfully requested.
+ * @return -1 if failed to request descriptor write.
+ */
+int ble_gatt_write_req_desc(int conn_id, int desc_id, int auth,
                             const char *value, int len);
 #endif

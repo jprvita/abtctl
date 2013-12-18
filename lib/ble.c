@@ -573,6 +573,21 @@ static void write_characteristic_cb(int conn_id, int status,
         data.cbs.char_write_cb(conn_id, id, NULL, 0, 0, status);
 }
 
+/* Called when a GATT write descriptor operation returns */
+static void write_descriptor_cb(int conn_id, int status,
+                                btgatt_write_params_t *p_data) {
+    ble_device_t *dev;
+    int id = -1;
+
+    dev = find_device_by_conn_id(conn_id);
+    if (dev)
+        id = find_descriptor(dev, &p_data->srvc_id, &p_data->char_id,
+                             &p_data->descr_id);
+
+    if (data.cbs.desc_write_cb)
+        data.cbs.desc_write_cb(conn_id, id, NULL, 0, 0, status);
+}
+
 static int ble_gatt_op(int operation, int conn_id, int id, int auth,
                        const char *value, int len) {
     ble_device_t *dev;
@@ -630,6 +645,20 @@ static int ble_gatt_op(int operation, int conn_id, int id, int auth,
                                                              auth,
                                                              (char *) value);
             break;
+
+        case 5: /* Write descriptor with write command */
+        case 6: /* Write descriptor with write request */
+        case 7: /* Write descriptor with prepare write */
+            if (dev->desc_count <= 0 || id >= dev->desc_count)
+                return -1;
+
+	    s = data.gattiface->client->write_descriptor(conn_id,
+	                                                 &dev->descs[id].c.s,
+							 &dev->descs[id].c.c,
+							 &dev->descs[id].d,
+                                                         operation-4, len,
+                                                         auth, (char *) value);
+            break;
     }
 
     if (s != BT_STATUS_SUCCESS)
@@ -654,6 +683,16 @@ int ble_gatt_write_cmd_char(int conn_id, int char_id, int auth,
 int ble_gatt_write_req_char(int conn_id, int char_id, int auth,
                             const char *value, int len) {
     return ble_gatt_op(3, conn_id, char_id, auth, value, len);
+}
+
+int ble_gatt_write_cmd_desc(int conn_id, int desc_id, int auth,
+                            const char *value, int len) {
+    return ble_gatt_op(5, conn_id, desc_id, auth, value, len);
+}
+
+int ble_gatt_write_req_desc(int conn_id, int desc_id, int auth,
+                            const char *value, int len) {
+    return ble_gatt_op(6, conn_id, desc_id, auth, value, len);
 }
 
 /* Called when the client registration is finished */
@@ -682,7 +721,7 @@ static const btgatt_client_callbacks_t gattccbs = {
     read_characteristic_cb,
     write_characteristic_cb,
     read_descriptor_cb,
-    NULL, /* write_descriptor_cb */
+    write_descriptor_cb,
     NULL, /* execute_write_cb */
     NULL, /* read_remote_rssi_cb */
 };
