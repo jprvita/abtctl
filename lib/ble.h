@@ -163,6 +163,7 @@ typedef struct ble_cbs {
     ble_gatt_found_cb_t desc_found_cb;
     ble_gatt_finished_cb_t desc_finished_cb;
     ble_gatt_response_cb_t char_read_cb;
+    ble_gatt_response_cb_t desc_read_cb;
 } ble_cbs_t;
 
 /**
@@ -324,4 +325,19 @@ int ble_gatt_discover_descriptors(int conn_id, int char_id);
  * @return -1 if failed to request characteristic read.
  */
 int ble_gatt_read_char(int conn_id, int char_id, int auth);
+
+/**
+ * Read the value of a characteristic descriptor.
+ *
+ * There should be an active connection with the device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param desc_id The identifier of the descriptor to be read.
+ * @param auth Whether or not link authentication should be requested before
+ *             trying to read the characteristic: 1 request, 0 do not request.
+ *
+ * @return 0 if characteristic read has been successfully requested.
+ * @return -1 if failed to request characteristic read.
+ */
+int ble_gatt_read_desc(int conn_id, int desc_id, int auth);
 #endif

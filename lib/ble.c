@@ -543,6 +543,22 @@ void read_characteristic_cb(int conn_id, int status,
                               p_data->value.len, p_data->value_type, status);
 }
 
+/* Called when a GATT read descriptor operation returns */
+static void read_descriptor_cb(int conn_id, int status,
+                               btgatt_read_params_t *p_data) {
+    ble_device_t *dev;
+    int id = -1;
+
+    dev = find_device_by_conn_id(conn_id);
+    if (dev)
+        id = find_descriptor(dev, &p_data->srvc_id, &p_data->char_id,
+                             &p_data->descr_id);
+
+    if (data.cbs.desc_read_cb)
+        data.cbs.desc_read_cb(conn_id, id, p_data->value.value,
+                              p_data->value.len, p_data->value_type, status);
+}
+
 static int ble_gatt_op(int operation, int conn_id, int id, int auth) {
     ble_device_t *dev;
     bt_status_t s = BT_STATUS_UNSUPPORTED;
@@ -572,6 +588,19 @@ static int ble_gatt_op(int operation, int conn_id, int id, int auth) {
 	                                                    &dev->chars[id].c,
                                                             auth);
             break;
+
+        case 1: /* Read descriptor */
+            if (dev->desc_count <= 0)
+                return -1;
+            if (id >= dev->desc_count)
+                return -1;
+
+	    s = data.gattiface->client->read_descriptor(conn_id,
+	                                                &dev->descs[id].c.s,
+							&dev->descs[id].c.c,
+							&dev->descs[id].d,
+                                                        auth);
+            break;
     }
 
     if (s != BT_STATUS_SUCCESS)
@@ -582,6 +611,10 @@ static int ble_gatt_op(int operation, int conn_id, int id, int auth) {
 
 int ble_gatt_read_char(int conn_id, int char_id, int auth) {
     return ble_gatt_op(0, conn_id, char_id, auth);
+}
+
+int ble_gatt_read_desc(int conn_id, int desc_id, int auth) {
+    return ble_gatt_op(1, conn_id, desc_id, auth);
 }
 
 /* Called when the client registration is finished */
@@ -609,7 +642,7 @@ static const btgatt_client_callbacks_t gattccbs = {
     NULL, /* notify_cb */
     read_characteristic_cb,
     NULL, /* write_characteristic_cb */
-    NULL, /* read_descriptor_cb */
+    read_descriptor_cb,
     NULL, /* write_descriptor_cb */
     NULL, /* execute_write_cb */
     NULL, /* read_remote_rssi_cb */
