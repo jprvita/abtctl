@@ -147,6 +147,35 @@ typedef void (*ble_gatt_response_cb_t)(int conn_id, int id,
                                        uint16_t value_type, int status);
 
 /**
+ * Type that represents a callback function to notify that a registration for
+ * characteristic notification has finished.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param char_id ID of the characteristic to register for notifications.
+ * @param registered Whether notifications for the characteristic has been
+ *                   successfully registered: 1 yes, 0 no.
+ * @param status The response status of the registration operation.
+ */
+typedef void (*ble_gatt_notification_register_cb_t)(int conn_id, int char_id,
+                                                    int registered, int status);
+
+/**
+ * Type that represents a callback function to forward a GATT notification or
+ * indication.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param char_id ID of the characteristic that the notification refers to.
+ * @param value The new value of the characteristic.
+ * @param value_len The length of the data pointed by the value parameter.
+ * @param is_indication Whether the received packed is a notification or an
+ *                      indication: 0 notification, 1 indication.
+ */
+typedef void (*ble_gatt_notification_cb_t)(int conn_id, int char_id,
+                                           const uint8_t *value,
+                                           uint16_t value_len,
+                                           uint8_t is_indication);
+
+/**
  * List of callbacks for BLE operations.
  */
 typedef struct ble_cbs {
@@ -166,6 +195,8 @@ typedef struct ble_cbs {
     ble_gatt_response_cb_t desc_read_cb;
     ble_gatt_response_cb_t char_write_cb;
     ble_gatt_response_cb_t desc_write_cb;
+    ble_gatt_notification_register_cb_t char_notification_register_cb;
+    ble_gatt_notification_cb_t char_notification_cb;
 } ble_cbs_t;
 
 /**
@@ -418,4 +449,36 @@ int ble_gatt_write_cmd_desc(int conn_id, int desc_id, int auth,
  */
 int ble_gatt_write_req_desc(int conn_id, int desc_id, int auth,
                             const char *value, int len);
+
+/**
+ * Register for notifications of changes in the value of a characteristic.
+ *
+ * There should be an active connection with the device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param char_id The identifier of the characteristic to register for
+ *                notifications.
+ *
+ * @return 0 if registration for characteristic notifications have been
+ *           successfully requested.
+ * @return -1 if failed to request registration for characteristic
+ *            notifications.
+ */
+int ble_gatt_register_char_notification(int conn_id, int char_id);
+
+/**
+ * Unregister for notifications of changes in the value of a characteristic.
+ *
+ * There should be an active connection with the device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param char_id The identifier of the characteristic to unregister for
+ *                notifications.
+ *
+ * @return 0 if deregistration for characteristic notifications have been
+ *           successfully requested.
+ * @return -1 if failed to request deregistration for characteristic
+ *            notifications.
+ */
+int ble_gatt_unregister_char_notification(int conn_id, int char_id);
 #endif

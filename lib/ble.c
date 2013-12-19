@@ -695,6 +695,82 @@ int ble_gatt_write_req_desc(int conn_id, int desc_id, int auth,
     return ble_gatt_op(6, conn_id, desc_id, auth, value, len);
 }
 
+/* Called when the registration for notifications on a char finishes */
+static void register_for_notification_cb(int conn_id, int registered,
+                                         int status,
+                                         btgatt_srvc_id_t *srvc_id,
+                                         btgatt_char_id_t *char_id) {
+    int id = 0;
+
+    if (data.cbs.char_notification_register_cb)
+        data.cbs.char_notification_register_cb(conn_id, id, registered, status);
+}
+
+/* Called when notifications of a characteristic are received */
+void notify_cb(int conn_id, btgatt_notify_params_t *p_data) {
+    int id = 0;
+
+    if (data.cbs.char_notification_cb)
+        data.cbs.char_notification_cb(conn_id, id, p_data->value, p_data->len,
+                                      !p_data->is_notify);
+}
+
+static int ble_gatt_char_notification(uint8_t operation, int conn_id,
+                                      int char_id) {
+    ble_device_t *dev;
+    bt_status_t s = BT_STATUS_UNSUPPORTED;
+    btgatt_srvc_id_t *srvc;
+    btgatt_char_id_t *ch;
+
+    if (char_id < 0)
+        return -1;
+
+    if (!data.client)
+        return -1;
+
+    if (!data.gattiface)
+        return -1;
+
+    if (!data.adapter_state)
+        return -1;
+
+    dev = find_device_by_conn_id(conn_id);
+    if (!dev)
+        return -1;
+
+    if (dev->char_count <= 0 || char_id >= dev->char_count)
+        return -1;
+
+    srvc = &dev->chars[char_id].s;
+    ch = &dev->chars[char_id].c;
+
+    switch (operation) {
+        case 0:
+            s = data.gattiface->client->register_for_notification(data.client,
+                                                                  &dev->bda,
+                                                                  srvc, ch);
+            break;
+        case 1:
+            s = data.gattiface->client->deregister_for_notification(data.client,
+                                                                    &dev->bda,
+                                                                    srvc, ch);
+            break;
+    }
+
+    if (s != BT_STATUS_SUCCESS)
+        return -s;
+
+    return 0;
+}
+
+int ble_gatt_register_char_notification(int conn_id, int char_id) {
+    return ble_gatt_char_notification(0, conn_id, char_id);
+}
+
+int ble_gatt_unregister_char_notification(int conn_id, int char_id) {
+    return ble_gatt_char_notification(1, conn_id, char_id);
+}
+
 /* Called when the client registration is finished */
 static void register_client_cb(int status, int client_if, bt_uuid_t *app_uuid) {
     if (status == BT_STATUS_SUCCESS) {
@@ -716,8 +792,8 @@ static const btgatt_client_callbacks_t gattccbs = {
     characteristic_discovery_cb,
     descriptor_discovery_cb,
     NULL, /* get_included_service_cb */
-    NULL, /* register_for_notification_cb */
-    NULL, /* notify_cb */
+    register_for_notification_cb,
+    notify_cb,
     read_characteristic_cb,
     write_characteristic_cb,
     read_descriptor_cb,
