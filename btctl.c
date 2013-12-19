@@ -1885,6 +1885,26 @@ static void cmd_rssi(char *args) {
     }
 }
 
+static void cmd_conns(char *args) {
+    int i, c = 0;
+
+    for (i = 0; i < MAX_CONNECTIONS; i++) {
+        connection_t *conn = &u.conns[i];
+        char addr_str[BT_ADDRESS_STR_LEN];
+
+        if (conn->conn_id <= INVALID_CONN_ID)
+            continue;
+
+        rl_printf("Connection ID: %i  Address: %s%s\n", conn->conn_id,
+                  ba2str(conn->remote_addr.address, addr_str),
+                  conn->conn_id == PENDING_CONN_ID ? " (pending)" : "");
+        c++;
+    }
+
+    if (c == 0)
+        rl_printf("No connections active\n");
+}
+
 /* List of available user commands */
 static const cmd_t cmd_list[] = {
     { "quit", "        Exits", cmd_quit },
@@ -1911,6 +1931,7 @@ static const cmd_t cmd_list[] = {
     { "unreg-notif", " Unregister a previous request to receive "
                      "notification/indicaton", cmd_unreg_notification },
     { "rssi", "        Request RSSI for connected device", cmd_rssi },
+    { "connections", " Display active connections", cmd_conns },
     { NULL, NULL, NULL }
 };
 
