@@ -1860,12 +1860,17 @@ void register_for_notification_cb(int conn_id, int registered, int status,
 void notify_cb(int conn_id, btgatt_notify_params_t *p_data) {
     char uuid_str[UUID128_STR_LEN] = {0};
     char value_hexstr[BTGATT_MAX_ATTR_LEN * 3 + 1] = {0};
+    char addr_str[BT_ADDRESS_STR_LEN];
     int i;
+    connection_t *conn;
 
     for (i = 0; i < p_data->len; i++)
         sprintf(&value_hexstr[i * 3], "%02hhx ", p_data->value[i]);
 
-    rl_printf("Notify Characteristic\n");
+    conn = get_connection(conn_id);
+    rl_printf("Notify Characteristic from address: %s connection ID: %i\n",
+              conn ? ba2str(conn->remote_addr.address, addr_str) : "Unknown",
+              conn_id);
     rl_printf("  Service UUID:        %s\n", uuid2str(&p_data->srvc_id.id.uuid,
               uuid_str));
     rl_printf("  Characteristic UUID: %s\n", uuid2str(&p_data->char_id.uuid,
@@ -1876,14 +1881,10 @@ void notify_cb(int conn_id, btgatt_notify_params_t *p_data) {
 
 static void cmd_reg_notification(char *args) {
     bt_status_t status;
+    connection_t *conn;
     service_info_t *svc_info;
     char_info_t *char_info;
-    int svc_id, char_id;
-
-    if (u.conn_id <= 0) {
-        rl_printf("Not connected\n");
-        return;
-    }
+    int conn_id, svc_id, char_id;
 
     if (u.gattiface == NULL) {
         rl_printf("Unable to register notification/indication: GATT interface "
@@ -1891,23 +1892,30 @@ static void cmd_reg_notification(char *args) {
         return;
     }
 
-    if (u.svcs_size <= 0) {
+    if (sscanf(args, " %i %i %i ", &conn_id, &svc_id, &char_id) != 3) {
+        rl_printf("Usage: reg-notif <connection ID> <service ID> "
+                  "<characteristic ID>\n");
+        return;
+    }
+
+    conn = get_connection(conn_id);
+    if (conn == NULL) {
+        rl_printf("Invalid connection ID\n");
+        return;
+    }
+
+    if (conn->svcs_size <= 0) {
         rl_printf("Run search-svc first to get all services list\n");
         return;
     }
 
-    if (sscanf(args, " %i %i ", &svc_id, &char_id) != 2) {
-        rl_printf("Usage: reg-notif serviceID characteristicID\n");
-        return;
-    }
-
-    if (svc_id < 0 || svc_id >= u.svcs_size) {
+    if (svc_id < 0 || svc_id >= conn->svcs_size) {
         rl_printf("Invalid serviceID: %i need to be between 0 and %i\n", svc_id,
-                  u.svcs_size - 1);
+                  conn->svcs_size - 1);
         return;
     }
 
-    svc_info = &u.svcs[svc_id];
+    svc_info = &conn->svcs[svc_id];
     if (char_id < 0 || char_id >= svc_info->char_count) {
         rl_printf("Invalid characteristicID, try to run characteristics "
                   "command\n");
@@ -1916,7 +1924,7 @@ static void cmd_reg_notification(char *args) {
 
     char_info = &svc_info->chars_buf[char_id];
     status = u.gattiface->client->register_for_notification(u.client_if,
-                                                           &u.remote_addr,
+                                                           &conn->remote_addr,
                                                            &svc_info->svc_id,
                                                            &char_info->char_id);
     if (status != BT_STATUS_SUCCESS)
@@ -1926,14 +1934,10 @@ static void cmd_reg_notification(char *args) {
 
 static void cmd_unreg_notification(char *args) {
     bt_status_t status;
+    connection_t *conn;
     service_info_t *svc_info;
     char_info_t *char_info;
-    int svc_id, char_id;
-
-    if (u.conn_id <= 0) {
-        rl_printf("Not connected\n");
-        return;
-    }
+    int conn_id, svc_id, char_id;
 
     if (u.gattiface == NULL) {
         rl_printf("Unable to unregister notification/indication: GATT interface"
@@ -1941,23 +1945,30 @@ static void cmd_unreg_notification(char *args) {
         return;
     }
 
-    if (u.svcs_size <= 0) {
+    if (sscanf(args, " %i %i %i ", &conn_id, &svc_id, &char_id) != 3) {
+        rl_printf("Usage: unreg-notif <connection ID> <service ID> "
+                  "<characteristic ID>\n");
+        return;
+    }
+
+    conn = get_connection(conn_id);
+    if (conn == NULL) {
+        rl_printf("Invalid connection ID\n");
+        return;
+    }
+
+    if (conn->svcs_size <= 0) {
         rl_printf("Run search-svc first to get all services list\n");
         return;
     }
 
-    if (sscanf(args, " %i %i ", &svc_id, &char_id) != 2) {
-        rl_printf("Usage: unreg-notif serviceID characteristicID\n");
-        return;
-    }
-
-    if (svc_id < 0 || svc_id >= u.svcs_size) {
+    if (svc_id < 0 || svc_id >= conn->svcs_size) {
         rl_printf("Invalid serviceID: %i need to be between 0 and %i\n", svc_id,
-                  u.svcs_size - 1);
+                  conn->svcs_size - 1);
         return;
     }
 
-    svc_info = &u.svcs[svc_id];
+    svc_info = &conn->svcs[svc_id];
     if (char_id < 0 || char_id >= svc_info->char_count) {
         rl_printf("Invalid characteristicID, try to run characteristics "
                   "command\n");
@@ -1966,7 +1977,7 @@ static void cmd_unreg_notification(char *args) {
 
     char_info = &svc_info->chars_buf[char_id];
     status = u.gattiface->client->deregister_for_notification(u.client_if,
-                                                           &u.remote_addr,
+                                                           &conn->remote_addr,
                                                            &svc_info->svc_id,
                                                            &char_info->char_id);
     if (status != BT_STATUS_SUCCESS)
