@@ -106,6 +106,17 @@ typedef void (*ble_bond_state_cb_t)(const uint8_t *address,
                                     ble_bond_state_t state, int status);
 
 /**
+ * Type that represents a callback function to inform the RSSI of the remote
+ * BLE device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param rssi The RSSI of the remote device.
+ * @param status The status in which the read remote RSSI operation has
+ *               finished.
+ */
+typedef void (*ble_rssi_cb_t)(int conn_id, int rssi, int status);
+
+/**
  * Type that represents a callback function to notify of a new GATT element
  * (service, characteristic or descriptor) found in a BLE device.
  *
@@ -185,6 +196,7 @@ typedef struct ble_cbs {
     ble_connect_cb_t connect_cb;
     ble_connect_cb_t disconnect_cb;
     ble_bond_state_cb_t bond_state_cb;
+    ble_rssi_cb_t rssi_cb;
     ble_gatt_found_cb_t srvc_found_cb;
     ble_gatt_finished_cb_t srvc_finished_cb;
     ble_gatt_found_cb_t char_found_cb;
@@ -301,6 +313,15 @@ int ble_cancel_pairing(const uint8_t *address);
  * @return -1 if failed to remove bond.
  */
 int ble_remove_bond(const uint8_t *address);
+
+/**
+ * Read the RSSI of a remote BLE device.
+ *
+ * There should be an active connection with the device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ */
+int ble_read_remote_rssi(int conn_id);
 
 /**
  * Discover services in a BLE device.

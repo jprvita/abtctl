@@ -308,6 +308,46 @@ static ble_device_t *find_device_by_conn_id(int conn_id) {
     return dev;
 }
 
+/* Called in response of a read remote RSSI operation */
+void read_remote_rssi_cb(int client_if, bt_bdaddr_t *bda, int rssi,
+                         int status) {
+    ble_device_t *dev;
+    int conn_id = -1;
+
+    if (!status) {
+        dev = find_device_by_address(bda->address);
+        if (dev)
+            conn_id = dev->conn_id;
+    }
+
+    if (data.cbs.rssi_cb)
+        data.cbs.rssi_cb(conn_id, rssi, status);
+}
+
+int ble_read_remote_rssi(int conn_id) {
+    ble_device_t *dev;
+    bt_status_t s;
+
+    if (!data.client)
+        return -1;
+
+    if (conn_id <= 0)
+        return -1;
+
+    if (!data.gattiface)
+        return -1;
+
+    dev = find_device_by_conn_id(conn_id);
+    if (!dev)
+        return -1;
+
+    s = data.gattiface->client->read_remote_rssi(data.client, &dev->bda);
+    if (s != BT_STATUS_SUCCESS)
+        return -s;
+
+    return 0;
+}
+
 static int find_service(ble_device_t *dev, btgatt_srvc_id_t *srvc_id) {
     int id;
 
@@ -799,7 +839,7 @@ static const btgatt_client_callbacks_t gattccbs = {
     read_descriptor_cb,
     write_descriptor_cb,
     NULL, /* execute_write_cb */
-    NULL, /* read_remote_rssi_cb */
+    read_remote_rssi_cb
 };
 
 /* GATT interface callbacks */
