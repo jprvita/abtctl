@@ -1368,26 +1368,17 @@ void write_characteristic_cb(int conn_id, int status,
  */
 void write_char(int write_type, const char *cmd, char *args) {
     bt_status_t status;
+    connection_t *conn;
     service_info_t *svc_info;
     char_info_t *char_info;
     char *saveptr = NULL, *tok;
     int params = 0;
-    int svc_id, char_id, auth;
+    int conn_id, svc_id, char_id, auth;
     char new_value[BTGATT_MAX_ATTR_LEN];
     int new_value_len = 0;
 
-    if (u.conn_id <= 0) {
-        rl_printf("Not connected\n");
-        return;
-    }
-
     if (u.gattiface == NULL) {
         rl_printf("Unable to BLE %s: GATT interface not avaiable\n", cmd);
-        return;
-    }
-
-    if (u.svcs_size <= 0) {
-        rl_printf("Run search-svc first to get all services list\n");
         return;
     }
 
@@ -1395,18 +1386,24 @@ void write_char(int write_type, const char *cmd, char *args) {
     while (tok != NULL) {
         switch (params) {
             case 0:
+                if (sscanf(tok, " %i ", &conn_id) != 1) {
+                    rl_printf("Invalid connection ID: %s\n", tok);
+                    return;
+                }
+                break;
+            case 1:
                 if (sscanf(tok, " %i ", &svc_id) != 1) {
                     rl_printf("Invalid serviceID: %s\n", tok);
                     return;
                 }
                 break;
-            case 1:
+            case 2:
                 if (sscanf(tok, " %i ", &char_id) != 1) {
                     rl_printf("Invalid characteristicID: %s\n", tok);
                     return;
                 }
                 break;
-            case 2:
+            case 3:
                 if (sscanf(tok, " %i ", &auth) != 1) {
                     rl_printf("Invalid auth: %s\n", tok);
                     return;
@@ -1435,20 +1432,32 @@ void write_char(int write_type, const char *cmd, char *args) {
         tok = strtok_r(NULL, " ", &saveptr);
     }
 
-    if (params < 4) {
-        rl_printf("Usage: %s serviceID characteristicID auth value\n", cmd);
+    if (params < 5) {
+        rl_printf("Usage: %s <connection ID> <serviceID> <characteristicID> "
+                  "<auth> [value ...]\n", cmd);
         rl_printf("  auth  - enable authentication (1) or not (0)\n");
         rl_printf("  value - a sequence of hex values (eg: DE AD BE EF)\n");
         return;
     }
 
-    if (svc_id < 0 || svc_id >= u.svcs_size) {
-        rl_printf("Invalid serviceID: %i need to be between 0 and %i\n", svc_id,
-                  u.svcs_size - 1);
+    conn = get_connection(conn_id);
+    if (conn == NULL) {
+        rl_printf("Invalid connection ID\n");
         return;
     }
 
-    svc_info = &u.svcs[svc_id];
+    if (conn->svcs_size <= 0) {
+        rl_printf("Run search-svc first to get all services list\n");
+        return;
+    }
+
+    if (svc_id < 0 || svc_id >= conn->svcs_size) {
+        rl_printf("Invalid serviceID: %i need to be between 0 and %i\n", svc_id,
+                  conn->svcs_size - 1);
+        return;
+    }
+
+    svc_info = &conn->svcs[svc_id];
     if (char_id < 0 || char_id >= svc_info->char_count) {
         rl_printf("Invalid characteristicID, try to run characteristics "
                   "command.\n");
@@ -1457,7 +1466,7 @@ void write_char(int write_type, const char *cmd, char *args) {
 
     rl_printf("Writing %i bytes\n", new_value_len);
     char_info = &svc_info->chars_buf[char_id];
-    status = u.gattiface->client->write_characteristic(u.conn_id,
+    status = u.gattiface->client->write_characteristic(conn_id,
                                                        &svc_info->svc_id,
                                                        &char_info->char_id,
                                                        write_type,
