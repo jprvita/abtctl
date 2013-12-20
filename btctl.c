@@ -109,21 +109,9 @@ struct userdata {
     uint8_t scan_state;
     bool client_registered;
     int client_if;
-    bt_bdaddr_t remote_addr;
-    int conn_id;
 
     prompt_state_t prompt_state;
     bt_bdaddr_t r_bd_addr; /* remote address when pairing */
-
-    /* When searching for services, we receive at search_result_cb a pointer
-     * for btgatt_srvc_id_t. But its value is replaced each time. So one option
-     * is to store these values and show a simpler ID to user.
-     *
-     * This static list limits the number of services that we can store, but it
-     * is simpler than using linked list.
-     */
-    service_info_t svcs[MAX_SVCS_SIZE];
-    int svcs_size;
 
     connection_t conns[MAX_CONNECTIONS];
 } u;
@@ -2213,7 +2201,6 @@ static void bt_init() {
     u.btiface_initialized = 0;
     u.quit = 0;
     u.adapter_state = BT_STATE_OFF; /* The adapter is OFF in the beginning */
-    u.conn_id = 0;
 
     for (i = 0; i < MAX_CONNECTIONS; i++)
         u.conns[i].conn_id = INVALID_CONN_ID;
