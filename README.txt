@@ -37,7 +37,10 @@ Limitations of abtctl
 =====================
 
 On the btctl tool, we have some limits:
-* We accept only one connection per time. If you need another connection,
-  disconnect first.
+* We support 10 connections at same time (easily extendable changing
+  MAX_CONNECTIONS value).
+* The stack doesn't support more than one pending connection at same time. So
+  if some connection is stuck, first cancel that connection with disconnect
+  command passing zero as connection ID.
 * We are using a static buffer for search_result_cb, so we have a limit of 128
   services that can be handled.
