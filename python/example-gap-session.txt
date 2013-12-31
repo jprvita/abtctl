@@ -1,0 +1,125 @@
+root@mako:/ # standalone_python.sh
+dlopen libpython2.6.so
+Python 2.6.2 (r262:71600, Mar 20 2011, 16:54:21)
+[GCC 4.4.3] on linux-armv7l
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import ble
+dlopen libble.so
+>>> ble.enable(ble.cbs)
+0
+>>> Adapter state changed: 1
+BLE Enabled
+
+>>> ble.start_scan()
+0
+>>> Found E3:95:7C:C4:4B:B0, RSSI -63
+Found C2:91:81:6F:8C:67, RSSI -84
+
+>>> ble.stop_scan()
+0
+>>> ble.pair('E3:95:7C:C4:4B:B0')
+>>> E3:95:7C:C4:4B:B0 bond state changed, state 1, status 0
+E3:95:7C:C4:4B:B0 bond state changed, state 2, status 0
+
+### Device is now bonded
+
+>>> ble.connect('E3:95:7C:C4:4B:B0')
+>>> E3:95:7C:C4:4B:B0 connected, conn_id 4, status 0
+
+### Now we have a connection id to identify the device
+
+>>> ble.remove_bond('E3:95:7C:C4:4B:B0')
+>>> E3:95:7C:C4:4B:B0 disconnected, conn_id 4, status 0
+E3:95:7C:C4:4B:B0 bond state changed, state 0, status 0
+E3:95:7C:C4:4B:B0 bond state changed, state 0, status 0
+
+### Device is not bonded anymore
+
+>>> ble.connect('E3:95:7C:C4:4B:B0')
+>>> E3:95:7C:C4:4B:B0 connected, conn_id 4, status 0
+E3:95:7C:C4:4B:B0 disconnected, conn_id 4, status 0
+E3:95:7C:C4:4B:B0 bond state changed, state 0, status 0
+
+### Connection fails due to bond missing
+
+>>> ble.pair('E3:95:7C:C4:4B:B0')
+>>> E3:95:7C:C4:4B:B0 bond state changed, state 1, status 0
+
+### Pair fails until we remove bonding on remote device as well (state never turns to 2)
+
+>>> ble.remove_bond('E3:95:7C:C4:4B:B0')
+>>> E3:95:7C:C4:4B:B0 bond state changed, state 0, status 0
+
+### Now bonding has been removed on both devices, so we scan for the device again
+
+>>> ble.start_scan()
+0
+>>> Found C2:91:81:6F:8C:67, RSSI -76
+Found E3:95:7C:C4:4B:B0, RSSI -71
+
+>>> ble.stop_scan()
+0
+>>> ble.pair('E3:95:7C:C4:4B:B0')
+>>> E3:95:7C:C4:4B:B0 bond state changed, state 1, status 0
+E3:95:7C:C4:4B:B0 bond state changed, state 2, status 0
+
+### Device is now bonded
+
+>>> ble.connect('E3:95:7C:C4:4B:B0')
+>>> E3:95:7C:C4:4B:B0 connected, conn_id 4, status 0
+
+### Now we have a connection id to identify the device
+
+>>> ble.disconnect('E3:95:7C:C4:4B:B0')
+>>> E3:95:7C:C4:4B:B0 disconnected, conn_id 4, status 0
+E3:95:7C:C4:4B:B0 bond state changed, state 0, status 0
+
+### We have now disconnected from the device. For some reason the stack also removed the bonding
+
+>>> ble.connect('E3:95:7C:C4:4B:B0')
+>>> E3:95:7C:C4:4B:B0 connected, conn_id 4, status 0
+E3:95:7C:C4:4B:B0 disconnected, conn_id 4, status 0
+E3:95:7C:C4:4B:B0 bond state changed, state 0, status 0
+
+>>> ble.remove_bond('E3:95:7C:C4:4B:B0')
+>>> E3:95:7C:C4:4B:B0 bond state changed, state 0, status 0
+
+### So again we need to remove bonding on both devices and pair
+
+>>> ble.start_scan()
+0
+>>> Found E3:95:7C:C4:4B:B0, RSSI -57
+Found C2:91:81:6F:8C:67, RSSI -81
+
+>>> ble.stop_scan()
+0
+>>>
+>>> ble.pair('E3:95:7C:C4:4B:B0')
+>>> E3:95:7C:C4:4B:B0 bond state changed, state 1, status 0
+E3:95:7C:C4:4B:B0 bond state changed, state 2, status 0
+
+>>> ble.connect('E3:95:7C:C4:4B:B0')
+>>> E3:95:7C:C4:4B:B0 connected, conn_id 4, status 0
+
+### Now device is bonded and have a conn_id
+
+### Reading device's RSSI
+
+>>> ble.read_remote_rssi(4)
+0
+>>> Dev conn_id 4, RSSI -60, status 0
+
+>>> ble.read_remote_rssi(4)
+0
+>>> Dev conn_id 4, RSSI -57, status 0
+
+>>> ble.disconnect('E3:95:7C:C4:4B:B0')
+>>> E3:95:7C:C4:4B:B0 disconnected, conn_id 4, status 0
+E3:95:7C:C4:4B:B0 bond state changed, state 0, status 0
+
+>>> ble.disable()
+0
+>>> Adapter state changed: 0
+
+>>>
+root@mako:/ #
