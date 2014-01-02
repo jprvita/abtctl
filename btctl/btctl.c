@@ -135,7 +135,6 @@ typedef struct cmd {
     void (*handler)(char *args);
 } cmd_t;
 
-
 void change_prompt_state(prompt_state_t new_state) {
     static char prompt_line[64] = {0};
     char addr_str[BT_ADDRESS_STR_LEN];
