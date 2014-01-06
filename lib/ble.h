@@ -472,6 +472,60 @@ int ble_gatt_write_req_desc(int conn_id, int desc_id, int auth,
                             const char *value, int len);
 
 /**
+ * Prepare to write the value of a characteristic (with response) later, with
+ * @func ble_execute_write().
+ *
+ * There should be an active connection with the device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param char_id The identifier of the characteristic to be written.
+ * @param auth Whether or not link encryption should be requested before trying
+ *             to write the descriptor: 1 request, 0 do not request.
+ * @param value Pointer to the value that should be written on the
+ *              descriptor.
+ * @param len The length of the data pointed by the value parameter.
+ *
+ * @return 0 if descriptor write has been successfully requested.
+ * @return -1 if failed to request descriptor write.
+ */
+int ble_gatt_prep_write_char(int conn_id, int char_id, int auth,
+                             const char *value, int len);
+
+/**
+ * Prepare to write the value of a descriptor (with response) later, with
+ * @func ble_execute_write().
+ *
+ * There should be an active connection with the device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param desc_id The identifier of the descriptor to be written.
+ * @param auth Whether or not link encryption should be requested before trying
+ *             to write the descriptor: 1 request, 0 do not request.
+ * @param value Pointer to the value that should be written on the
+ *              descriptor.
+ * @param len The length of the data pointed by the value parameter.
+ *
+ * @return 0 if descriptor write has been successfully requested.
+ * @return -1 if failed to request descriptor write.
+ */
+int ble_gatt_prep_write_desc(int conn_id, int desc_id, int auth,
+                             const char *value, int len);
+
+/**
+ * Execute or cancel a previously prepared write operation.
+ *
+ * There should be an active connection with the device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param execute Whether the operation should be executed or cancelled:
+ * 1 request, 0 do not request.
+ *
+ * @return 0 if descriptor write has been successfully requested.
+ * @return -1 if failed to request descriptor write.
+ */
+int ble_gatt_execute_write(int conn_id, int execute);
+
+/**
  * Register for notifications of changes in the value of a characteristic.
  *
  * There should be an active connection with the device.

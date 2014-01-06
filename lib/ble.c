@@ -45,6 +45,12 @@ struct ble_gatt_desc {
     bt_uuid_t d;
 };
 
+typedef enum {
+    BLE_GATT_ELEM_SERVICE,
+    BLE_GATT_ELEM_CHARACTERISTIC,
+    BLE_GATT_ELEM_DESCRIPTOR
+} gatt_elem_t;
+
 /* Internal representation of a BLE device */
 typedef struct ble_device ble_device_t;
 struct ble_device {
@@ -57,6 +63,10 @@ struct ble_device {
     uint8_t char_count;
     ble_gatt_desc_t *descs;
     uint8_t desc_count;
+
+    uint8_t write_prepared;
+    gatt_elem_t prep_write_type;
+    uint8_t prep_write_id;
 
     ble_device_t *next;
 };
@@ -628,6 +638,21 @@ static void write_descriptor_cb(int conn_id, int status,
         data.cbs.desc_write_cb(conn_id, id, NULL, 0, 0, status);
 }
 
+static void execute_write_cb(int conn_id, int status) {
+    ble_device_t *dev;
+
+    dev = find_device_by_conn_id(conn_id);
+    if (!dev || !dev->write_prepared)
+        return;
+
+    if (dev->prep_write_type == BLE_GATT_ELEM_CHARACTERISTIC &&
+        data.cbs.char_write_cb)
+        data.cbs.char_write_cb(conn_id, dev->prep_write_id, NULL, 0, 0, status);
+    else if (dev->prep_write_type == BLE_GATT_ELEM_DESCRIPTOR &&
+        data.cbs.desc_write_cb)
+        data.cbs.desc_write_cb(conn_id, dev->prep_write_id, NULL, 0, 0, status);
+}
+
 static int ble_gatt_op(int operation, int conn_id, int id, int auth,
                        const char *value, int len) {
     ble_device_t *dev;
@@ -672,9 +697,14 @@ static int ble_gatt_op(int operation, int conn_id, int id, int auth,
                                                         auth);
             break;
 
+        case 4: /* Write characteristic with prepare write */
+            dev->write_prepared = 1;
+            dev->prep_write_type = BLE_GATT_ELEM_CHARACTERISTIC;
+            dev->prep_write_id = id;
+            /* pass-through */
+
         case 2: /* Write characteristic with write command */
         case 3: /* Write characteristic with write request */
-        case 4: /* Write characteristic with prepare write */
             if (dev->char_count <= 0 || id >= dev->char_count)
                 return -1;
 
@@ -686,9 +716,14 @@ static int ble_gatt_op(int operation, int conn_id, int id, int auth,
                                                              (char *) value);
             break;
 
+        case 7: /* Write descriptor with prepare write */
+            dev->write_prepared = 1;
+            dev->prep_write_type = BLE_GATT_ELEM_DESCRIPTOR;
+            dev->prep_write_id = id;
+            /* pass-through */
+
         case 5: /* Write descriptor with write command */
         case 6: /* Write descriptor with write request */
-        case 7: /* Write descriptor with prepare write */
             if (dev->desc_count <= 0 || id >= dev->desc_count)
                 return -1;
 
@@ -698,6 +733,12 @@ static int ble_gatt_op(int operation, int conn_id, int id, int auth,
 							 &dev->descs[id].d,
                                                          operation-4, len,
                                                          auth, (char *) value);
+            break;
+
+        case 8:
+            if (id == 0) /* Cancel prepared write */
+                dev->write_prepared = 0;
+            s = data.gattiface->client->execute_write(conn_id, id);
             break;
     }
 
@@ -733,6 +774,20 @@ int ble_gatt_write_cmd_desc(int conn_id, int desc_id, int auth,
 int ble_gatt_write_req_desc(int conn_id, int desc_id, int auth,
                             const char *value, int len) {
     return ble_gatt_op(6, conn_id, desc_id, auth, value, len);
+}
+
+int ble_gatt_prep_write_char(int conn_id, int char_id, int auth,
+                             const char *value, int len) {
+    return ble_gatt_op(4, conn_id, char_id, auth, value, len);
+}
+
+int ble_gatt_prep_write_desc(int conn_id, int desc_id, int auth,
+                             const char *value, int len) {
+    return ble_gatt_op(7, conn_id, desc_id, auth, value, len);
+}
+
+int ble_gatt_execute_write(int conn_id, int execute) {
+    return ble_gatt_op(8, conn_id, execute, 0, NULL, 0);
 }
 
 /* Called when the registration for notifications on a char finishes */
@@ -838,7 +893,7 @@ static const btgatt_client_callbacks_t gattccbs = {
     write_characteristic_cb,
     read_descriptor_cb,
     write_descriptor_cb,
-    NULL, /* execute_write_cb */
+    execute_write_cb,
     read_remote_rssi_cb
 };
 
