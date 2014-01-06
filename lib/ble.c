@@ -418,6 +418,58 @@ int ble_gatt_discover_services(int conn_id, const uint8_t *uuid) {
     return 0;
 }
 
+static void get_included_service_cb(int conn_id, int status, btgatt_srvc_id_t *srvc_id, btgatt_srvc_id_t *incl_srvc_id) {
+    ble_device_t *dev;
+    int id;
+
+    if (status != 0)
+        return;
+
+    dev = find_device_by_conn_id(conn_id);
+    if (!dev)
+        return;
+
+    id = find_service(dev, incl_srvc_id);
+    if (id < 0)
+        return;
+
+    if (data.cbs.srvc_found_cb)
+        data.cbs.srvc_found_cb(conn_id, id, incl_srvc_id->id.uuid.uu,
+                               incl_srvc_id->is_primary);
+
+    data.gattiface->client->get_included_service(conn_id, srvc_id,
+                                                 incl_srvc_id);
+}
+
+int ble_gatt_get_included_services(int conn_id, int service_id) {
+    ble_device_t *dev;
+    bt_status_t s;
+
+    if (conn_id <= 0)
+        return -1;
+
+    if (!data.gattiface)
+        return -1;
+
+    dev = find_device_by_conn_id(conn_id);
+    if (!dev)
+        return -1;
+
+    if (dev->srvc_count <= 0)
+        return -1;
+
+    if (service_id < 0 || service_id >= dev->srvc_count)
+        return -1;
+
+    s = data.gattiface->client->get_included_service(conn_id,
+                                                     &dev->srvcs[service_id],
+                                                     NULL);
+    if (s != BT_STATUS_SUCCESS)
+        return -s;
+
+    return 0;
+}
+
 static int find_characteristic(ble_device_t *dev, btgatt_srvc_id_t *srvc_id,
                                btgatt_char_id_t *char_id) {
     int id;
@@ -886,7 +938,7 @@ static const btgatt_client_callbacks_t gattccbs = {
     service_discovery_result_cb,
     characteristic_discovery_cb,
     descriptor_discovery_cb,
-    NULL, /* get_included_service_cb */
+    get_included_service_cb,
     register_for_notification_cb,
     notify_cb,
     read_characteristic_cb,

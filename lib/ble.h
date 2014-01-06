@@ -338,6 +338,20 @@ int ble_read_remote_rssi(int conn_id);
 int ble_gatt_discover_services(int conn_id, const uint8_t *uuid);
 
 /**
+ * Get included services of a certain service.
+ *
+ * There should be an active connection with the device.
+ *
+ * @param conn_id The identifier of the connected remote device.
+ * @param service_id The id of the service that included services should be
+ *                   obtained.
+ *
+ * @return 0 if service discovery has been successfully requested.
+ * @return -1 if failed to request service discovery.
+ */
+int ble_gatt_get_included_services(int conn_id, int service_id);
+
+/**
  * Discover characteristics in a service of a BLE device.
  *
  * There should be an active connection with the device.
