@@ -33,14 +33,28 @@ of all the available commands. Each command also have its own help, which can be
 accessed passing 'help' as the first argument of the command. For example, the
 help of the connect command is accessible through 'connect help'.
 
-Limitations of abtctl
-=====================
+Limitations
+===========
 
-On the btctl tool, we have some limits:
-* We support 10 connections at same time (easily extendable changing
+btctl
+-----
+
+* We only support 10 connections at same time (easily extendable changing
   MAX_CONNECTIONS value).
-* The stack doesn't support more than one pending connection at same time. So
-  if some connection is stuck, first cancel that connection with disconnect
-  command passing zero as connection ID.
 * We are using a static buffer for search_result_cb, so we have a limit of 128
   services that can be handled.
+
+bluedroid
+---------
+
+* The stack doesn't support more than one pending connection at same time. So
+  if some connection is stuck, cancel that connection attempt before trying a
+  new connection.
+* Bluedroid doesn't handle the bonded devices list very well. This means it may
+  fail to realize that the link already have the necessary security level and
+  try to re-authenticate a link that is already bonded when there is no need.
+  Also, it may fail to pair with a unbonded device because it thinks it is
+  already bonded (this have been noticed after removing the bond with a
+  previously bonded device). To force the removal of all bonded devices the
+  files /data/misc/bluedroid/bt_config.xml and
+  /data/misc/bluedroid/bt_config.old should be deleted.
