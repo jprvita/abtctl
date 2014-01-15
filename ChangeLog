@@ -1,3 +1,13 @@
+0.5
+===
+
+This version creates libble, a library that wraps all libhardware BLE features.
+The main objective of this library is to ease accessing these features from
+scripting languages, through the creating of bindings of libble for each
+desired scripting language. As an example Python bindings of libble are
+provided as well, together with instructions on how to install and execute both
+the bindings and the Python interpreter itself on a vanilla AOSP.
+
 0.4
 ===
 
